@@ -1,28 +1,30 @@
-// Connexion au piano en MIDI (Web MIDI, Chrome sur Mac et Android) + saisie au doigt en secours.
+// Connexion au piano en MIDI (Web MIDI, Chrome sur Mac et Android) + saisie à l'écran en secours.
 const noteListeners = new Set();
+const offListeners = new Set();
 const statusListeners = new Set();
 let access = null;
 let status = 'off'; // off | pending | on | nodevice | blocked | unsupported
 
-export const supported = typeof navigator.requestMIDIAccess === 'function';
+export const supported = typeof navigator !== 'undefined' && typeof navigator.requestMIDIAccess === 'function';
 
 export function getStatus() {
   const inputs = access ? [...access.inputs.values()].filter((i) => i.state === 'connected').map((i) => i.name || 'Clavier MIDI') : [];
   return { status, inputs };
 }
+export function isOn() { return status === 'on'; }
 function emitStatus() { const s = getStatus(); statusListeners.forEach((f) => f(s)); }
 
 export function onStatus(fn) { statusListeners.add(fn); fn(getStatus()); return () => statusListeners.delete(fn); }
 export function onNote(fn) { noteListeners.add(fn); return () => noteListeners.delete(fn); }
+export function onNoteOff(fn) { offListeners.add(fn); return () => offListeners.delete(fn); }
 
 function handle(e) {
   const d = e.data;
   if (!d || d.length < 3) return;
   const st = d[0] & 0xf0;
-  if (st === 0x90 && d[2] > 0) {
-    const t = e.timeStamp > 0 ? e.timeStamp : performance.now();
-    noteListeners.forEach((f) => f({ note: d[1], vel: d[2], t, source: 'midi' }));
-  }
+  const t = e.timeStamp > 0 ? e.timeStamp : performance.now();
+  if (st === 0x90 && d[2] > 0) noteListeners.forEach((f) => f({ note: d[1], vel: d[2], t, source: 'midi' }));
+  else if (st === 0x80 || (st === 0x90 && d[2] === 0)) offListeners.forEach((f) => f({ note: d[1], t, source: 'midi' }));
 }
 
 function bind() {
@@ -48,9 +50,15 @@ export async function connect() {
   }
 }
 
-// Frappe au doigt (écran ou clavier d'ordinateur) : même circuit que les notes MIDI, sans hauteur.
+// Frappe au doigt (écran ou barre d'espace) : même circuit que les notes MIDI, sans hauteur.
 export function emitTap(t) {
   noteListeners.forEach((f) => f({ note: null, vel: 100, t: t || performance.now(), source: 'tap' }));
+}
+// Note jouée sur le clavier à l'écran.
+export function emitNote(note, t) {
+  const now = t || performance.now();
+  noteListeners.forEach((f) => f({ note, vel: 90, t: now, source: 'screen' }));
+  setTimeout(() => offListeners.forEach((f) => f({ note, t: performance.now(), source: 'screen' })), 300);
 }
 
 export function statusLabel(s) {

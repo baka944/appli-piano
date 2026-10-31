@@ -105,3 +105,138 @@ export function midiToFr(m) {
   const names = ['do', 'do♯', 'ré', 'mi♭', 'mi', 'fa', 'fa♯', 'sol', 'la♭', 'la', 'si♭', 'si'];
   return names[m % 12] + (Math.floor(m / 12) - 2); // convention française : do central = do3
 }
+
+// ---------- Grilles d'accords saisies à la main ----------
+const QUALITY = [
+  [/^(maj7|ma7|M7|Δ7?|maj)$/, [0, 4, 7, 11], 'maj7'],
+  [/^(maj9|M9|Δ9)$/, [0, 4, 7, 11, 14], 'maj7'],
+  [/^(6|M6|add6)$/, [0, 4, 7, 9], 'maj'],
+  [/^(69|6\/9)$/, [0, 4, 7, 9, 14], 'maj'],
+  [/^(m|-|min)$/, [0, 3, 7], 'min'],
+  [/^(m6|-6|min6)$/, [0, 3, 7, 9], 'min'],
+  [/^(m7|-7|min7|mi7)$/, [0, 3, 7, 10], 'm7'],
+  [/^(m9|-9|min9)$/, [0, 3, 7, 10, 14], 'm7'],
+  [/^(m11|-11)$/, [0, 3, 7, 10, 14, 17], 'm7'],
+  [/^(mMaj7|mM7|m\(maj7\)|-Δ7?|mΔ7?)$/, [0, 3, 7, 11], 'min'],
+  [/^(m7b5|m7♭5|-7b5|-7♭5|ø7?)$/, [0, 3, 6, 10], 'm7b5'],
+  [/^(dim7|°7|o7)$/, [0, 3, 6, 9], 'dim7'],
+  [/^(dim|°|o)$/, [0, 3, 6], 'dim7'],
+  [/^(7)$/, [0, 4, 7, 10], 'dom7'],
+  [/^(9)$/, [0, 4, 7, 10, 14], 'dom7'],
+  [/^(13)$/, [0, 4, 10, 14, 21], 'dom7'],
+  [/^(7b9|7♭9)$/, [0, 4, 7, 10, 13], 'dom7'],
+  [/^(7#9|7♯9)$/, [0, 4, 7, 10, 15], 'dom7'],
+  [/^(7#11|7♯11)$/, [0, 4, 7, 10, 18], 'dom7'],
+  [/^(7#5|7♯5|7\+5|\+7|7aug|aug7)$/, [0, 4, 8, 10], 'dom7'],
+  [/^(7b5|7♭5)$/, [0, 4, 6, 10], 'dom7'],
+  [/^(7alt|alt)$/, [0, 4, 10, 13, 15], 'dom7'],
+  [/^(\+|aug)$/, [0, 4, 8], 'aug'],
+  [/^(sus4?|sus2)$/, [0, 5, 7], 'sus4'],
+  [/^(7sus4?|9sus4?|sus7)$/, [0, 5, 7, 10], 'sus4'],
+  [/^$/, [0, 4, 7], 'maj'],
+];
+const ACC_IN = { '#': 1, '♯': 1, b: -1, '♭': -1 };
+
+// "Fmaj7", "Bb7", "Em7b5", "C7/E" → { name, root (classe 0–11), semis, bass, ok }
+export function parseChord(raw) {
+  const s = String(raw).trim();
+  const m = s.match(/^([A-G])([#♯b♭]?)([^/]*)(?:\/([A-G])([#♯b♭]?))?$/);
+  if (!m) return null;
+  const root = (NAT[LETTERS.indexOf(m[1])] + (ACC_IN[m[2]] || 0) + 12) % 12;
+  const suf = m[3].replace(/[()]/g, (c) => (m[3].includes('maj7)') ? c : ''));
+  let semis = null;
+  let family = 'maj';
+  for (const [re, iv, fam] of QUALITY) if (re.test(suf)) { semis = iv; family = fam; break; }
+  let ok = true;
+  if (!semis) {
+    ok = false;
+    const minor = /^(m|-)/.test(suf) && !/^maj/.test(suf);
+    semis = minor ? [0, 3, 7] : [0, 4, 7];
+    if (/7/.test(suf)) semis = semis.concat(/maj|M|Δ/.test(suf) ? 11 : 10);
+    family = minor ? 'm7' : 'dom7';
+  }
+  const bass = m[4] ? (NAT[LETTERS.indexOf(m[4])] + (ACC_IN[m[5]] || 0) + 12) % 12 : root;
+  return { name: s, root, semis, bass, family, ok };
+}
+
+// Texte de grille → mesures. "|" sépare les mesures, l'espace les accords, "%" répète la mesure précédente.
+export function parseGrid(text) {
+  const lines = String(text || '').split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  const bars = [];
+  const unknown = new Set();
+  lines.forEach((line, li) => {
+    line.split('|').map((b) => b.trim()).filter((b) => b.length).forEach((b) => {
+      if (b === '%' && bars.length) { bars.push({ chords: bars[bars.length - 1].chords, line: li, repeat: true }); return; }
+      const chords = b.split(/\s+/).map((t) => {
+        const c = parseChord(t);
+        if (!c || !c.ok) unknown.add(t);
+        return c;
+      }).filter(Boolean);
+      if (chords.length) bars.push({ chords, line: li });
+    });
+  });
+  return { bars, unknown: [...unknown] };
+}
+
+// ---------- Progressions courantes (degrés relatifs à la tonique) ----------
+// d = degré (0 = I), alt = altération en demi-tons, q = qualité (clé de CHORDS)
+export const PROGRESSIONS = [
+  { id: 'ii-v-i', name: 'II – V – I', chords: [{ d: 1, q: 'm7' }, { d: 4, q: 'dom7' }, { d: 0, q: 'maj7' }], level: 1,
+    info: 'La cadence centrale du jazz : le II prépare le V, qui se résout sur le I. Une grande partie des standards s’enchaîne en II-V.', },
+  { id: 'i-iv-v-i', name: 'I – IV – V – I', chords: [{ d: 0, q: 'maj' }, { d: 3, q: 'maj' }, { d: 4, q: 'maj' }, { d: 0, q: 'maj' }], level: 1,
+    info: 'Les trois accords principaux de la tonalité. On les retrouve au cœur du blues, du rock et de la chanson.' },
+  { id: 'i-v-vi-iv', name: 'I – V – VI – IV', chords: [{ d: 0, q: 'maj' }, { d: 4, q: 'maj' }, { d: 5, q: 'min' }, { d: 3, q: 'maj' }], level: 1,
+    info: 'Une boucle de quatre accords très présente en pop. Le VI mineur apporte la touche mélancolique.' },
+  { id: 'i-vi-ii-v', name: 'I – VI – II – V', chords: [{ d: 0, q: 'maj7' }, { d: 5, q: 'm7' }, { d: 1, q: 'm7' }, { d: 4, q: 'dom7' }], level: 2,
+    info: 'Le turnaround : il fait tourner la grille et ramène au début du morceau. Souvent joué en fin de grille ou dans les A d’un AABA.' },
+  { id: 'vi-iv-i-v', name: 'VI – IV – I – V', chords: [{ d: 5, q: 'min' }, { d: 3, q: 'maj' }, { d: 0, q: 'maj' }, { d: 4, q: 'maj' }], level: 2,
+    info: 'Les mêmes accords que I-V-VI-IV, mais en partant du VI : la boucle sonne plus sombre.' },
+  { id: 'ii-v-i-min', name: 'II – V – I mineur', minor: true, chords: [{ d: 1, q: 'm7b5' }, { d: 4, q: 'dom7' }, { d: 0, q: 'm7', alt: 0, minorI: true }], level: 2,
+    info: 'La version mineure de la cadence : un II demi-diminué, un V7 et un I mineur.' },
+  { id: 'iv-ivm-i', name: 'IV – IVm – I', chords: [{ d: 3, q: 'maj7' }, { d: 3, q: 'm7' }, { d: 0, q: 'maj7' }], level: 3,
+    info: 'Le IV devient mineur avant de revenir au I : un accord emprunté au mode mineur qui donne une couleur douce-amère.' },
+  { id: 'iii-vi-ii-v', name: 'III – VI – II – V', chords: [{ d: 2, q: 'm7' }, { d: 5, q: 'm7' }, { d: 1, q: 'm7' }, { d: 4, q: 'dom7' }], level: 3,
+    info: 'Une chaîne d’accords qui descendent par quintes jusqu’au V. Variante plus longue du turnaround.' },
+  { id: 'andalouse', name: 'Cadence andalouse', minor: true, chords: [{ d: 0, q: 'min', minorI: true }, { d: 6, alt: -1, q: 'maj' }, { d: 5, alt: -1, q: 'maj' }, { d: 4, q: 'maj' }], level: 3,
+    info: 'Une basse qui descend : I mineur, ♭VII, ♭VI, V. Couleur hispanique, associée au flamenco.' },
+  { id: 'i-bvii-iv-i', name: 'I – ♭VII – IV – I', chords: [{ d: 0, q: 'maj' }, { d: 6, alt: -1, q: 'maj' }, { d: 3, q: 'maj' }, { d: 0, q: 'maj' }], level: 3,
+    info: 'Le ♭VII emprunté donne une couleur mixolydienne, typique du rock et du funk.' },
+];
+export const PROG_LEVELS = [
+  { n: 1, name: 'Les incontournables', ids: ['ii-v-i', 'i-iv-v-i', 'i-v-vi-iv'] },
+  { n: 2, name: 'Turnarounds et mineur', ids: ['i-vi-ii-v', 'vi-iv-i-v', 'ii-v-i-min', 'ii-v-i'] },
+  { n: 3, name: 'Couleurs et emprunts', ids: ['iv-ivm-i', 'iii-vi-ii-v', 'andalouse', 'i-bvii-iv-i'] },
+  { n: 4, name: 'Toutes les progressions', ids: PROGRESSIONS.map((p) => p.id) },
+];
+export const progById = Object.fromEntries(PROGRESSIONS.map((p) => [p.id, p]));
+
+// Accords d'une progression dans une tonalité (tonique orthographiée).
+export function realize(prog, tonic) {
+  return prog.chords.map((c) => {
+    const semis = (c.minorI ? 0 : MAJOR[c.d]) + (c.alt || 0);
+    // en mineur : ♭VI et ♭VII sont relatifs à la gamme majeure de même tonique
+    const root = transpose(tonic, c.d, semis);
+    return { root, q: c.q, symbol: chordSymbol(root, c.q), rootPc: pc(root), semis: chordSemis(c.q) };
+  });
+}
+export function romanOf(prog) { return prog.name; }
+
+// Classes de hauteur d'un accord (pour vérifier ce qui est joué).
+export function chordPcs(rootPc, semis) { return [...new Set(semis.map((s) => (rootPc + s) % 12))]; }
+export function guideTones(rootPc, semis) {
+  // tierce et septième si présentes : suffisent pour reconnaître un accord de jazz joué en « shell »
+  const third = semis.find((s) => s === 3 || s === 4 || s === 5);
+  const seventh = semis.find((s) => s === 9 || s === 10 || s === 11);
+  return [third, seventh].filter((x) => x != null).map((s) => (rootPc + s) % 12);
+}
+
+// Voicing simple autour du médium : fondamentale à la basse, accord au-dessus.
+export function voice(rootPc, semis, low = 48) {
+  let r = low + ((rootPc - low % 12 + 12) % 12);
+  if (r > low + 7) r -= 12;
+  const bass = r - 12 >= 36 ? r - 12 : r;
+  const upper = semis.slice(1).map((s) => r + s).map((m) => (m < 52 ? m + 12 : m));
+  return { bass, notes: [r, ...upper] };
+}
+
+export const CIRCLE_FOURTHS = [0, 1, 3, 5, 7, 9, 11, 10, 8, 6, 4, 2].map((i) => KEYS[i]); // do fa si♭ mi♭ la♭ ré♭ sol♭ si mi la ré sol

@@ -1,4 +1,14 @@
 // Petits outils d'interface.
+// Les méthodes DOM append/replaceChildren écrivent « null » quand on leur passe null :
+// on filtre ces valeurs vides une fois pour toute l'appli.
+if (typeof Element !== 'undefined' && !Element.prototype.__vides) {
+  for (const m of ['append', 'replaceChildren', 'prepend']) {
+    const orig = Element.prototype[m];
+    Element.prototype[m] = function (...kids) { return orig.apply(this, kids.filter((k) => k != null && k !== false)); };
+  }
+  Element.prototype.__vides = true;
+}
+
 export function h(tag, attrs, ...children) {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(attrs || {})) {

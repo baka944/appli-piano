@@ -15,6 +15,10 @@ export const PATTERNS = [
   { id: 'garland', name: 'Red Garland', desc: '« Et » du 2 et « et » du 4, l’accord suivant anticipé.', bars: [[3, 7]], level: 3 },
 ];
 export const patternById = Object.fromEntries(PATTERNS.map((p) => [p.id, p]));
+export function allPatterns() {
+  return [...PATTERNS, ...store.get().customPatterns.map((c) => ({ ...c, level: 1, custom: true, desc: 'Ton rythme personnalisé.' }))];
+}
+export function findPattern(id) { return allPatterns().find((p) => p.id === id); }
 
 const GRADES = {
   parfait: { label: 'Parfait', pts: 100, max: 25 },
@@ -79,7 +83,7 @@ function patternNotation(pattern) {
 export function render(el, app, params = {}) {
   const s = store.get();
   const lvl = store.skillLevel('rythme').level;
-  let current = patternById[params.pattern] || PATTERNS.find((p) => p.level <= lvl && !s.best[`rythme:${p.id}`]) || PATTERNS[0];
+  let current = findPattern(params.pattern) || PATTERNS.find((p) => p.level <= lvl && !s.best[`rythme:${p.id}`]) || PATTERNS[0];
   if (current.level > lvl) current = PATTERNS[0];
   let running = null;
   let stopTap = null;
@@ -113,6 +117,60 @@ export function render(el, app, params = {}) {
       h('span', { class: 'muted small' }, locked ? `Débloqué au niveau ${p.level} de rythme` : best != null ? `Meilleur score : ${best} %` : 'Pas encore joué')));
     });
     root.append(grid);
+    root.append(h('div', { class: 'card-head' }, h('h2', { class: 'hand-title' }, 'Mes rythmes'),
+      h('button', { class: 'btn sm', type: 'button', onclick: () => builder() }, 'Créer un rythme')));
+    const mine = allPatterns().filter((p) => p.custom);
+    if (!mine.length) root.append(h('p', { class: 'muted small' }, 'Coche les croches que tu veux jouer sur une ou deux mesures, et l\u2019appli te fait travailler ce placement comme les autres.'));
+    else {
+      const g2 = h('div', { class: 'grid2' });
+      mine.forEach((p) => {
+        const best = s.best[`rythme:${p.id}`];
+        g2.append(h('div', { class: 'card pick' },
+          h('button', { type: 'button', class: 'pick-btn', onclick: () => setup(p, false) },
+            h('span', { class: 'pick-title' }, p.name), patternNotation(p),
+            h('span', { class: 'muted small' }, best != null ? `Meilleur score : ${best} %` : 'Pas encore joué')),
+          h('div', { class: 'row' },
+            h('button', { class: 'btn ghost sm', type: 'button', onclick: () => builder(p) }, 'Modifier'),
+            h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { s.customPatterns = s.customPatterns.filter((c) => c.id !== p.id); store.save(); list(); } }, 'Supprimer'))));
+      });
+      root.append(g2);
+    }
+  }
+
+  function builder(edit) {
+    cleanup();
+    const bars = edit ? edit.bars.map((b) => b.slice()) : [[0, 3]];
+    let name = edit ? edit.name : '';
+    const box = h('div', { class: 'stack' });
+    const labels = ['1', 'et', '2', 'et', '3', 'et', '4', 'et'];
+    function draw() {
+      box.replaceChildren(
+        h('label', { for: 'pat-name' }, 'Nom du rythme'),
+        h('input', { id: 'pat-name', type: 'text', value: name, placeholder: 'Ex. : comping Crazy Race', autocomplete: 'off', oninput: (e) => { name = e.target.value; } }),
+        h('div', { class: 'seg', role: 'group', 'aria-label': 'Nombre de mesures' },
+          [1, 2].map((n) => h('button', { type: 'button', class: bars.length === n ? 'on' : '', onclick: () => { if (n === 2 && bars.length === 1) bars.push(bars[0].slice()); if (n === 1) bars.length = 1; draw(); } }, `${n} mesure${n > 1 ? 's' : ''}`))),
+        ...bars.map((bar, bi) => h('div', { class: 'stack' },
+          bars.length > 1 ? h('span', { class: 'muted small' }, `Mesure ${bi + 1}`) : null,
+          h('div', { class: 'slots edit' }, labels.map((l, i) => h('button', {
+            type: 'button', class: `slot${bar.includes(i) ? ' on' : ''}${i % 2 ? ' off' : ''}`, 'aria-pressed': bar.includes(i) ? 'true' : 'false',
+            onclick: () => { const k = bar.indexOf(i); if (k >= 0) bar.splice(k, 1); else { bar.push(i); bar.sort((a, b) => a - b); } draw(); },
+          }, l))))),
+        h('p', { class: 'muted small' }, 'Touche une case pour ajouter ou retirer une attaque. « et » = la croche entre deux temps.'),
+        h('div', { class: 'row' },
+          h('button', { class: 'btn ghost', type: 'button', onclick: () => demo({ pattern: { bars }, bpm: s.settings.bpm, swing: s.settings.swing }) }, 'Écouter'),
+          h('button', { class: 'btn', type: 'button', onclick: () => {
+            if (!bars.some((b) => b.length)) { toast('Coche au moins une case.', 'bad'); return; }
+            const pat = { id: edit ? edit.id : `perso-${Date.now().toString(36)}`, name: name.trim() || 'Mon rythme', bars: bars.map((b) => b.slice()) };
+            s.customPatterns = [...s.customPatterns.filter((c) => c.id !== pat.id), pat];
+            store.save();
+            toast('Rythme enregistré.');
+            list();
+          } }, 'Enregistrer')));
+    }
+    root.replaceChildren(h('button', { class: 'back', type: 'button', onclick: list }, '← Tous les rythmes'),
+      h('div', { class: 'page-head' }, h('h1', { class: 'display' }, edit ? 'Modifier le rythme' : 'Créer un rythme')),
+      h('section', { class: 'card' }, box));
+    draw();
   }
 
   function setup(p, calibration) {
@@ -146,6 +204,7 @@ export function render(el, app, params = {}) {
   }
 
   async function demo(cfg) {
+    cfg = { ...cfg, pattern: cfg.pattern };
     const c = await audio.unlock();
     const beat = 60 / cfg.bpm;
     const start = c.currentTime + 0.2;
@@ -242,7 +301,7 @@ export function render(el, app, params = {}) {
     const xpRaw = Math.round(20 * r.score / 100) + (r.score >= 85 ? 10 : 0);
     const prevBest = s.best[`rythme:${cfg.pattern.id}`];
     store.setBest(`rythme:${cfg.pattern.id}`, r.score);
-    const out = store.award('rythme', xpRaw, { activity: 'rythme', label: `${cfg.pattern.name} · ${cfg.bpm} BPM`, score: r.score, pattern: cfg.pattern.id });
+    const out = store.award('rythme', xpRaw, { activity: 'rythme', label: `${cfg.pattern.name} · ${cfg.bpm} BPM`, score: r.score, pattern: cfg.pattern.id, bpm: cfg.bpm });
     app.celebrate(out);
 
     let tendency = 'Pas assez d’attaques pour mesurer une tendance.';

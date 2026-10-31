@@ -121,3 +121,10 @@ export const TYPES = Object.keys(MAKERS);
 export function makeQuestion(level, type) {
   return MAKERS[type || pick(TYPES)](level);
 }
+
+export const THEMES = {
+  tout: { label: 'Tout mélangé', types: TYPES },
+  gammes: { label: 'Gammes et armures', types: ['degre', 'armure'] },
+  accords: { label: 'Accords et harmonisation', types: ['accord', 'diatonique', 'iivi'] },
+  intervalles: { label: 'Intervalles', types: ['intervalle'] },
+};

@@ -3,6 +3,10 @@ import * as store from './store.js';
 import * as midi from './midi.js';
 import * as rythme from './rythme.js';
 import * as oreille from './oreille.js';
+import * as morceaux from './morceaux.js';
+import * as culture from './culture.js';
+import * as travail2 from './travail2.js';
+import { PILIERS, conseilDuJour } from './conseils.js';
 
 const TABS = [
   { id: 'aujourdhui', label: 'Aujourd’hui', icon: 'today' },
@@ -21,33 +25,30 @@ const app = {
   open(tab, params) { pending = params || null; if (location.hash === `#${tab}`) route(); else location.hash = tab; },
   celebrate(out) {
     if (out.levelUp) toast(`Niveau ${out.levelUp} : ${store.tempoName(out.levelUp)} !`, 'big');
-    if (out.skillUp) toast(`Nouveau niveau de compétence : ${out.skillUp}. De nouveaux exercices sont débloqués.`);
+    if (out.skillUp) toast(`Nouveau niveau de compétence : ${out.skillUp}.`);
     (out.quests || []).forEach((q) => toast(`Quête réussie : ${q.text} (+${store.QUEST_REWARD} XP)`, 'big'));
     renderTop();
   },
 };
 
-// ---------- Thème ----------
 function applyTheme() {
   const t = store.get().settings.theme;
   if (t === 'auto') delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = t;
 }
 
-// ---------- Barre du haut ----------
 const topEl = document.getElementById('top-status');
 function renderTop() {
   const g = store.globalLevel();
   const ms = midi.getStatus();
   topEl.replaceChildren(
     h('div', { class: 'lvl' },
-      h('span', { class: 'lvl-name' }, `Niv. ${g.level} · ${store.tempoName(g.level)}`),
+      h('span', { class: 'lvl-name' }, `${store.currentPlayer().name} · niv. ${g.level} · ${store.tempoName(g.level)}`),
       progressBar(g.pct, 'Progression vers le niveau suivant')),
     h('button', { type: 'button', class: `midi-chip st-${ms.status}`, onclick: () => midi.connect(), title: ms.inputs.join(', ') || null },
       icon('piano', 'ic sm'), h('span', null, midi.statusLabel(ms))));
 }
 
-// ---------- Navigation ----------
 function renderNav() {
   const nav = document.getElementById('tabbar');
   const cur = currentTab();
@@ -61,14 +62,21 @@ function route() {
   if (cleanup) { try { cleanup(); } catch (e) { /* rien */ } }
   cleanup = null;
   const tab = currentTab();
-  const params = pending;
+  const params = pending || {};
   pending = null;
   renderNav();
+  renderTop();
   view.replaceChildren();
-  view.scrollTop = 0;
   window.scrollTo(0, 0);
-  const pages = { aujourdhui: today, morceaux: songs, travail: work, oreille: (el, p) => oreille.render(el, app, p), culture, journal };
-  cleanup = pages[tab](view, params || {}) || null;
+  const pages = {
+    aujourdhui: today,
+    morceaux: (el, p) => morceaux.render(el, app, p),
+    travail: work,
+    oreille: (el, p) => oreille.render(el, app, p),
+    culture: (el, p) => culture.render(el, app, p),
+    journal,
+  };
+  cleanup = pages[tab](view, params) || null;
 }
 
 // ---------- Aujourd'hui ----------
@@ -76,20 +84,17 @@ const PLANS = {
   15: [['morceau', 10], ['rythme', 5]],
   30: [['morceau', 15], ['rythme', 10], ['oreille', 5]],
   45: [['morceau', 20], ['rythme', 15], ['oreille', 10]],
-  60: [['morceau', 25], ['rythme', 15], ['oreille', 10], ['theorie', 10]],
+  60: [['morceau', 25], ['rythme', 15], ['oreille', 10], ['harmonie', 10]],
 };
-
 function pickSong() {
   const s = store.get();
-  const last = (id) => { const e = s.history.find((x) => x.activity === 'morceau' && x.song === id); return e ? e.t : ''; };
-  const list = s.songs.slice().sort((a, b) => (b.jam - a.jam) || last(a.id).localeCompare(last(b.id)));
-  return list[0];
+  const last = (id) => { const e = s.history.find((x) => (x.activity === 'morceau' || x.activity === 'playalong') && x.song === id); return e ? e.t : ''; };
+  return s.songs.slice().sort((a, b) => (b.jam - a.jam) || last(a.id).localeCompare(last(b.id)))[0];
 }
 function pickPattern() {
   const s = store.get();
   const lvl = store.skillLevel('rythme').level;
-  const open = rythme.PATTERNS.filter((p) => p.level <= lvl);
-  return open.slice().sort((a, b) => (s.best[`rythme:${a.id}`] ?? -1) - (s.best[`rythme:${b.id}`] ?? -1))[0];
+  return rythme.allPatterns().filter((p) => p.level <= lvl).sort((a, b) => (s.best[`rythme:${a.id}`] ?? -1) - (s.best[`rythme:${b.id}`] ?? -1))[0];
 }
 
 function today(el) {
@@ -97,22 +102,25 @@ function today(el) {
   const minutes = s.settings.minutes;
   const done = store.historyToday();
   const d = new Date();
-  const dateTxt = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
-  const doneSong = done.find((x) => x.activity === 'morceau');
+  const doneSong = done.find((x) => x.activity === 'morceau' || x.activity === 'playalong');
   const song = (doneSong && s.songs.find((x) => x.id === doneSong.song)) || pickSong();
   const donePat = done.find((x) => x.activity === 'rythme');
-  const pat = (donePat && rythme.patternById[donePat.pattern]) || pickPattern();
-  const earMode = d.getDate() % 2 ? 'intervalles' : 'accords';
+  const pat = (donePat && rythme.findPattern(donePat.pattern)) || pickPattern();
+  const earMode = ['intervalles', 'accords', 'progressions'][d.getDate() % 3];
+  const has = (...acts) => done.some((x) => acts.includes(x.activity));
 
   const items = PLANS[minutes].map(([kind, mins]) => {
-    if (kind === 'morceau' && song) {
-      return { tag: 'Morceau', title: song.title, sub: song.notes ? song.notes.split('.')[0] : song.artist, mins, done: done.some((x) => x.activity === 'morceau' && x.song === song.id), go: () => app.open('morceaux', { song: song.id, mins }) };
+    if (kind === 'morceau') {
+      if (!song) return { tag: 'Morceau', title: 'Ajoute un morceau', sub: 'Onglet Morceaux', mins, done: false, go: () => app.open('morceaux') };
+      return { tag: 'Morceau', title: song.title, sub: song.grid ? 'Ouvrir la grille et jouer dessus' : 'Saisir la grille', mins, done: done.some((x) => (x.activity === 'morceau' || x.activity === 'playalong') && x.song === song.id), go: () => app.open('morceaux', { song: song.id }) };
     }
-    if (kind === 'rythme') return { tag: 'Rythme', title: pat.name, sub: 'Au métronome, mesuré au MIDI', mins, done: done.some((x) => x.activity === 'rythme'), go: () => app.open('travail', { pattern: pat.id }) };
-    if (kind === 'oreille') return { tag: 'Oreille', title: earMode === 'intervalles' ? 'Intervalles' : 'Accords', sub: '10 questions', mins, done: done.some((x) => x.activity === 'oreille'), go: () => app.open('oreille', { mode: earMode, start: true }) };
-    return { tag: 'Théorie', title: 'Quiz de théorie', sub: '10 questions', mins, done: done.some((x) => x.activity === 'theorie'), go: () => app.open('oreille', { mode: 'theorie', start: true }) };
+    if (kind === 'rythme') return { tag: 'Rythme', title: pat.name, sub: 'Au métronome, mesuré au MIDI', mins, done: has('rythme'), go: () => app.open('travail', { sub: 'rythme', pattern: pat.id }) };
+    if (kind === 'oreille') return { tag: 'Oreille', title: { intervalles: 'Intervalles', accords: 'Accords', progressions: 'Progressions' }[earMode], sub: '10 questions', mins, done: has('oreille'), go: () => app.open('oreille', { mode: earMode }) };
+    return { tag: 'Harmonie', title: 'Suites d’accords', sub: 'Au piano, dans plusieurs tonalités', mins, done: has('suites', 'harmonisation', 'gammes'), go: () => app.open('travail', { sub: 'suites' }) };
   });
 
+  const tip = conseilDuJour(d);
+  const pillarDone = { morceau: has('morceau', 'playalong'), temps: has('rythme', 'playalong'), oreille: has('oreille', 'ecoute') };
   const quests = store.weekQuests();
   const dx = store.dailyXp();
   el.append(
@@ -127,8 +135,18 @@ function today(el) {
         <ellipse cx="250" cy="55" rx="5.5" ry="4" transform="rotate(-20 250 55)"/><line x1="255.3" y1="54" x2="255.3" y2="28"/><line x1="220.3" y1="23" x2="255.3" y2="28" stroke-width="3.5"/>
         <ellipse cx="305" cy="45" rx="5.5" ry="4" transform="rotate(-20 305 45)" class="open"/><line x1="310.3" y1="44" x2="310.3" y2="18"/></g>
         <text x="8" y="12" class="chord">F</text><text x="182" y="12" class="chord">Em</text></svg>`),
-      h('p', { class: 'muted hand' }, dateTxt),
-      h('h1', { class: 'display' }, 'Salut Christopher')),
+      h('p', { class: 'muted hand' }, d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })),
+      h('h1', { class: 'display' }, `Salut ${store.currentPlayer().name}`)),
+    h('section', { class: 'card stack essentiel' },
+      h('h2', { class: 'hand-title' }, 'L’essentiel du jour'),
+      h('div', { class: 'piliers' }, PILIERS.map((p) => h('div', { class: `pilier${pillarDone[p.id] ? ' done' : ''}` },
+        h('span', { class: 'tick' }, pillarDone[p.id] ? icon('check', 'ic sm') : null),
+        h('span', null, h('strong', null, p.title), h('span', { class: 'muted small' }, p.text))))),
+      h('details', { class: 'tip' },
+        h('summary', null, h('strong', null, `Conseil : ${tip.title}`)),
+        h('p', null, tip.text),
+        h('p', { class: 'small' }, h('span', { class: 'proof' }, `Niveau de preuve : ${tip.preuve}`), ' ', tip.detail),
+        tip.source ? h('a', { class: 'small', href: tip.source.url, target: '_blank', rel: 'noopener' }, tip.source.label) : null)),
     h('section', { class: 'card stack' },
       h('div', { class: 'card-head' },
         h('h2', { class: 'hand-title' }, 'Au programme'),
@@ -138,90 +156,40 @@ function today(el) {
         h('span', { class: 'tick' }, it.done ? icon('check', 'ic sm') : null),
         h('span', { class: 'plan-main' }, h('span', { class: 'tag' }, it.tag), h('strong', null, it.title), h('span', { class: 'muted small' }, it.sub)),
         h('span', { class: 'hand mins' }, `${it.mins}′`)))),
-      h('p', { class: 'muted small' }, `XP du jour : ${dx} / ${store.DAILY_CAP}. Au-delà, l’XP ne compte plus jusqu’à demain : pas besoin d’en faire trop.`)),
-    h('div', { class: 'grid2' },
-      quests.map((q) => h('section', { class: `card stack quest${q.done ? ' done' : ''}` },
-        h('span', { class: 'hand-title sm' }, q.done ? 'Quête réussie' : 'Quête de la semaine'),
-        h('strong', null, q.text),
-        progressBar(Math.round((q.progress / q.target) * 100), q.text),
-        h('span', { class: 'muted small num' }, `${q.progress} / ${q.target} · +${store.QUEST_REWARD} XP`)))),
+      h('p', { class: 'muted small' }, `XP du jour : ${dx} / ${store.DAILY_CAP}. Au-delà, l’XP ne compte plus jusqu’à demain.`)),
+    h('h2', { class: 'hand-title' }, 'Quêtes de la semaine'),
+    h('div', { class: 'grid2' }, quests.map((q) => h('section', { class: `card stack quest${q.done ? ' done' : ''}` },
+      h('strong', null, q.text),
+      h('span', { class: 'muted small' }, q.why),
+      progressBar(Math.round((q.progress / q.target) * 100), q.text),
+      h('span', { class: 'muted small num' }, q.done ? `Réussie · +${store.QUEST_REWARD} XP` : `${q.progress} / ${q.target} · +${store.QUEST_REWARD} XP`)))),
   );
 }
 
-// ---------- Morceaux ----------
-function songs(el, params) {
-  const s = store.get();
-  const wrap = h('div', { class: 'stack' });
-  el.append(wrap);
-  function draw() {
-    wrap.replaceChildren(
-      h('div', { class: 'page-head' }, h('h1', { class: 'display' }, 'Morceaux'),
-        h('p', { class: 'lead' }, 'Le cœur de ta pratique. Note où tu en es et enregistre ton temps de travail.')),
-      ...s.songs.map((song) => {
-        const worked = s.history.filter((x) => x.activity === 'morceau' && x.song === song.id);
-        const mins = worked.reduce((t, x) => t + (x.minutes || 0), 0);
-        const notesId = `notes-${song.id}`;
-        return h('section', { class: `card stack${params.song === song.id ? ' focus' : ''}`, id: `song-${song.id}` },
-          h('div', { class: 'card-head' },
-            h('div', null, h('h2', null, song.title), h('span', { class: 'muted small' }, song.artist)),
-            song.jam ? h('span', { class: 'tag' }, 'Jam') : null),
-          h('label', { for: notesId, class: 'small muted' }, 'Où j’en suis'),
-          h('textarea', { id: notesId, rows: 2, onchange: (e) => { song.notes = e.target.value; store.save(); } }, song.notes || ''),
-          h('div', { class: 'row wrap' },
-            h('span', { class: 'muted small' }, mins ? `${mins} min travaillées au total` : 'Pas encore de séance enregistrée'),
-            h('span', { class: 'spacer' }),
-            [10, 20, 30].map((m) => h('button', {
-              type: 'button', class: `btn ${params.mins === m && params.song === song.id ? '' : 'ghost'} sm`,
-              onclick: () => {
-                const out = store.award('morceaux', m, { activity: 'morceau', song: song.id, jam: song.jam, minutes: m, label: `${song.title} · ${m} min` });
-                toast(`+${out.gained} XP sur ${song.title}${out.capped ? ' (plafond du jour)' : ''}`);
-                app.celebrate(out);
-                draw();
-              },
-            }, `+${m} min`))));
-      }),
-      addForm());
-    if (params.song) setTimeout(() => document.getElementById(`song-${params.song}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50);
-  }
-  function addForm() {
-    const f = h('form', { class: 'card stack', onsubmit: (e) => {
-      e.preventDefault();
-      const title = f.querySelector('#new-title').value.trim();
-      if (!title) return;
-      s.songs.push({ id: `m-${Date.now()}`, title, artist: f.querySelector('#new-artist').value.trim(), jam: f.querySelector('#new-jam').checked, notes: '' });
-      store.save();
-      draw();
-    } },
-    h('h2', null, 'Ajouter un morceau'),
-    h('label', { for: 'new-title' }, 'Titre'), h('input', { id: 'new-title', type: 'text', required: true, autocomplete: 'off' }),
-    h('label', { for: 'new-artist' }, 'Artiste ou version de référence'), h('input', { id: 'new-artist', type: 'text', autocomplete: 'off' }),
-    h('label', { class: 'check' }, h('input', { id: 'new-jam', type: 'checkbox' }), 'Morceau de la jam'),
-    h('button', { class: 'btn', type: 'submit' }, 'Ajouter'));
-    return f;
-  }
-  draw();
-}
-
 // ---------- Travail ----------
+const WORK_TABS = [['rythme', 'Rythme'], ['gammes', 'Gammes'], ['harmonisation', 'Harmonisation'], ['suites', 'Suites d’accords']];
 function work(el, params) {
+  let sub = params.sub || 'rythme';
+  let stop = null;
   const box = h('div', { class: 'stack' });
-  el.append(box);
-  const stop = rythme.render(box, app, params);
-  el.append(h('section', { class: 'stack soon' },
-    h('h2', { class: 'hand-title' }, 'Bientôt dans Travail'),
-    h('div', { class: 'grid2' },
-      [['Gammes et harmonisation', 'V2'], ['Suites d’accords', 'V2'], ['Voicings et fioritures', 'V3'], ['Licks et relevés', 'V3'], ['Impro', 'V3'], ['Dictée mélodique', 'V3']]
+  const seg = h('div', { class: 'seg scroll', role: 'tablist' });
+  el.append(seg, box,
+    h('section', { class: 'stack soon' },
+      h('h2', { class: 'hand-title' }, 'Bientôt dans Travail'),
+      h('div', { class: 'grid2' }, [['Voicings et fioritures', 'V3'], ['Licks et relevés', 'V3'], ['Impro guidée', 'V3'], ['Dictée mélodique', 'V3']]
         .map(([t, v]) => h('div', { class: 'card locked' }, icon('lock', 'ic sm'), h('strong', null, t), h('span', { class: 'muted small' }, v))))));
-  return stop;
-}
-
-// ---------- Culture ----------
-function culture(el) {
-  el.append(h('div', { class: 'page-head' }, h('h1', { class: 'display' }, 'Culture'),
-    h('p', { class: 'lead' }, 'Arrive en V2. Chaque fiche sera vérifiée et sourcée avant d’entrer dans l’appli.')),
-  h('div', { class: 'grid2' },
-    ['Carte du jour', 'Grands compositeurs', 'Grands interprètes', 'Histoire des mouvements', 'Albums et morceaux incontournables', 'Citations vérifiées', 'Familles d’instruments', 'Ponts entre genres', 'Quiz éclair', 'Ma liste d’écoute']
-      .map((t) => h('div', { class: 'card locked' }, icon('lock', 'ic sm'), h('strong', null, t)))));
+  function show(p = {}) {
+    if (stop) { try { stop(); } catch (e) { /* rien */ } }
+    seg.replaceChildren(...WORK_TABS.map(([id, label]) => h('button', { type: 'button', role: 'tab', 'aria-selected': sub === id ? 'true' : 'false', class: sub === id ? 'on' : '', onclick: () => { sub = id; show(); } }, label)));
+    box.replaceChildren();
+    const back = () => h('button', { class: 'back', type: 'button', onclick: () => show() }, '← Retour');
+    if (sub === 'rythme') stop = rythme.render(box, app, p);
+    else if (sub === 'gammes') stop = travail2.gammes(box, app, back);
+    else if (sub === 'harmonisation') stop = travail2.harmonisation(box, app, back);
+    else stop = travail2.suites(box, app, back);
+  }
+  show(params);
+  return () => { if (stop) stop(); };
 }
 
 // ---------- Journal ----------
@@ -230,7 +198,7 @@ function journal(el) {
   const g = store.globalLevel();
   const ms = midi.getStatus();
   const confirmBox = h('div', { class: 'row', hidden: true },
-    h('span', null, 'Effacer toute ta progression ?'),
+    h('span', null, 'Effacer toute la progression de ce joueur ?'),
     h('button', { class: 'btn danger sm', type: 'button', onclick: () => { store.reset(); applyTheme(); toast('Progression effacée.'); route(); } }, 'Oui, tout effacer'),
     h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { confirmBox.hidden = true; } }, 'Annuler'));
   const fileIn = h('input', { id: 'import-file', type: 'file', accept: 'application/json,.json', hidden: true, onchange: async (e) => {
@@ -238,9 +206,33 @@ function journal(el) {
     if (!f) return;
     try { store.importJson(await f.text()); applyTheme(); toast('Progression importée.'); route(); } catch (err) { toast(err.message || 'Import impossible.', 'bad'); }
   } });
+  const players = store.playerList();
+  const cur = store.currentPlayer();
+  const newName = h('input', { id: 'new-player', type: 'text', placeholder: 'Prénom', autocomplete: 'off' });
+  const delBox = h('div', { class: 'row', hidden: true },
+    h('span', null, `Supprimer ${cur.name} et toute sa progression ?`),
+    h('button', { class: 'btn danger sm', type: 'button', onclick: () => { store.removeCurrentPlayer(); applyTheme(); route(); } }, 'Supprimer'),
+    h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { delBox.hidden = true; } }, 'Annuler'));
+
+  // temps par onglet, pour voir l'équilibre du travail
+  const groups = { Morceaux: ['morceau', 'playalong'], Travail: ['rythme', 'gammes', 'harmonisation', 'suites'], Oreille: ['oreille', 'theorie'], Culture: ['culture', 'ecoute'] };
+  const week = store.historyWeek();
+  const xpBy = Object.fromEntries(Object.entries(groups).map(([k, acts]) => [k, week.filter((x) => acts.includes(x.activity)).reduce((t, x) => t + x.xp, 0)]));
+  const maxXp = Math.max(1, ...Object.values(xpBy));
 
   el.append(
     h('div', { class: 'page-head' }, h('h1', { class: 'display' }, 'Journal')),
+    h('section', { class: 'card stack' },
+      h('h2', null, 'Joueur'),
+      h('div', { class: 'row wrap' },
+        h('label', { for: 'player' }, 'Joueur actuel'),
+        h('select', { id: 'player', style: { width: 'auto' }, onchange: (e) => { store.switchPlayer(e.target.value); applyTheme(); route(); } },
+          players.map((p) => h('option', { value: p.id, selected: p.id === cur.id }, p.name)))),
+      h('div', { class: 'row wrap' }, newName,
+        h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { if (!newName.value.trim()) return; store.addPlayer(newName.value); applyTheme(); toast(`Nouveau joueur : ${newName.value.trim()}`); route(); } }, 'Ajouter un joueur')),
+      players.length > 1 ? h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { delBox.hidden = false; } }, `Supprimer ${cur.name}`) : null,
+      delBox,
+      h('p', { class: 'muted small' }, 'Chaque joueur a sa propre partie sur cet appareil. Quelqu’un qui ouvre l’appli sur son appareil part de zéro et ne voit jamais la tienne.')),
     h('section', { class: 'card stack' },
       h('div', { class: 'card-head' }, h('h2', null, `Niveau ${g.level} · ${store.tempoName(g.level)}`), h('span', { class: 'muted small num' }, `${s.xp} XP`)),
       progressBar(g.pct), h('span', { class: 'muted small num' }, `${g.into} / ${g.need} XP avant ${store.tempoName(g.level + 1)}`),
@@ -248,10 +240,14 @@ function journal(el) {
         const l = store.skillLevel(k);
         return h('div', { class: 'skill' }, h('span', null, label), h('span', { class: 'num muted small' }, `niv. ${l.level}`), progressBar(l.pct, label));
       }))),
+    h('section', { class: 'card stack' },
+      h('h2', null, 'Équilibre de la semaine'),
+      h('p', { class: 'muted small' }, 'XP gagnée par onglet depuis lundi.'),
+      h('div', { class: 'skills' }, Object.entries(xpBy).map(([k, v]) => h('div', { class: 'skill' }, h('span', null, k), h('span', { class: 'num muted small' }, `${v} XP`), progressBar(Math.round((v / maxXp) * 100), k))))),
     h('section', { class: 'card stack' }, h('h2', null, 'Dernières séances'),
       s.history.length ? h('ul', { class: 'hist' }, s.history.slice(0, 30).map((x) => h('li', null,
         h('span', { class: 'muted small num' }, new Date(x.t).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })),
-        h('span', null, x.label || x.activity, x.score != null && x.activity !== 'morceau' ? h('span', { class: 'muted' }, ` · ${x.score} %`) : null),
+        h('span', null, x.label || x.activity, x.score != null ? h('span', { class: 'muted' }, ` · ${x.score} %`) : null),
         h('span', { class: 'num xp' }, `+${x.xp}`)))) : h('p', { class: 'muted' }, 'Rien encore. Ta première séance apparaîtra ici.')),
     h('section', { class: 'card stack' }, h('h2', null, 'Réglages'),
       h('label', { for: 'theme' }, 'Apparence'),
@@ -262,13 +258,13 @@ function journal(el) {
         h('button', { class: 'btn ghost sm', type: 'button', onclick: async () => { await midi.connect(); route(); } }, 'Connecter')),
       h('div', { class: 'row wrap' },
         h('span', null, s.settings.calibrated ? `Décalage compensé : ${s.settings.latencyMs} ms` : 'Pas encore calibré'),
-        h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { store.setSetting('calibrated', false); app.open('travail'); } }, 'Recalibrer'))),
+        h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { store.setSetting('calibrated', false); app.open('travail', { sub: 'rythme' }); } }, 'Recalibrer'))),
     h('section', { class: 'card stack' }, h('h2', null, 'Sauvegarde'),
-      h('p', { class: 'muted small' }, 'Ta progression est enregistrée dans ce navigateur, sur cet appareil. Pour la passer sur un autre appareil : exporte-la ici, puis importe le fichier là-bas.'),
+      h('p', { class: 'muted small' }, 'La progression est enregistrée dans ce navigateur. En attendant la synchro automatique : exporte ici, puis importe le fichier sur l’autre appareil.'),
       h('div', { class: 'row wrap' },
         h('button', { class: 'btn ghost sm', type: 'button', onclick: () => {
           const blob = new Blob([store.exportJson()], { type: 'application/json' });
-          const a = h('a', { href: URL.createObjectURL(blob), download: `appli-piano-${store.today()}.json` });
+          const a = h('a', { href: URL.createObjectURL(blob), download: `appli-piano-${cur.name}-${store.today()}.json` });
           document.body.append(a); a.click(); a.remove();
         } }, 'Exporter'),
         h('button', { class: 'btn ghost sm', type: 'button', onclick: () => fileIn.click() }, 'Importer'), fileIn,
