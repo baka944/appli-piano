@@ -12,7 +12,7 @@ export const PATTERNS = [
   { id: 'deux-mesures', name: 'Rythme sur 2 mesures', desc: 'Ton rythme 2 : le 1 et le « et » du 2, puis le « et » du 1.', bars: [[0, 3], [1]], level: 1 },
   { id: 'charleston', name: 'Charleston', desc: 'Le 1 et le « et » du 2, répété à chaque mesure : un placement de comping très courant.', bars: [[0, 3]], level: 2 },
   { id: 'contretemps', name: 'Contretemps', desc: 'Uniquement sur les « et ». Indispensable en swing comme en funk.', bars: [[1, 3, 5, 7]], level: 2 },
-  { id: 'garland', name: 'Red Garland', desc: '« Et » du 2 et « et » du 4, l’accord suivant anticipé.', bars: [[3, 7]], level: 3 },
+  { id: 'garland', name: 'Red Garland', desc: '« Et » du 2 et « et » du 4, l’accord suivant anticipé.', bars: [[3, 7]], level: 4 },
 ];
 export const patternById = Object.fromEntries(PATTERNS.map((p) => [p.id, p]));
 export function allPatterns() {
@@ -114,7 +114,7 @@ export function render(el, app, params = {}) {
       },
       h('span', { class: 'pick-title' }, locked ? icon('lock', 'ic sm') : null, p.name),
       patternNotation(p),
-      h('span', { class: 'muted small' }, locked ? `Débloqué au niveau ${p.level} de rythme` : best != null ? `Meilleur score : ${best} %` : 'Pas encore joué')));
+      h('span', { class: 'muted small' }, locked ? `Débloqué au niveau ${p.level} de Travail` : best != null ? `Meilleur score : ${best} %` : 'Pas encore joué')));
     });
     root.append(grid);
     root.append(h('div', { class: 'card-head' }, h('h2', { class: 'hand-title' }, 'Mes rythmes'),

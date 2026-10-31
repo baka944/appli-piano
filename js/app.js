@@ -24,8 +24,10 @@ let pending = null;
 const app = {
   open(tab, params) { pending = params || null; if (location.hash === `#${tab}`) route(); else location.hash = tab; },
   celebrate(out) {
-    if (out.levelUp) toast(`Niveau ${out.levelUp} : ${store.tempoName(out.levelUp)} !`, 'big');
-    if (out.skillUp) toast(`Nouveau niveau de compétence : ${out.skillUp}.`);
+    if (out.domainUp) {
+      const d = out.domainUp;
+      toast(`${d.label} : niveau ${d.level} / ${store.MAX_LEVEL}${d.titleChanged ? ` · nouveau titre : ${d.title}` : ''}`, 'big');
+    }
     (out.quests || []).forEach((q) => toast(`Quête réussie : ${q.text} (+${store.QUEST_REWARD} XP)`, 'big'));
     renderTop();
   },
@@ -39,12 +41,15 @@ function applyTheme() {
 
 const topEl = document.getElementById('top-status');
 function renderTop() {
-  const g = store.globalLevel();
   const ms = midi.getStatus();
   topEl.replaceChildren(
-    h('div', { class: 'lvl' },
-      h('span', { class: 'lvl-name' }, `${store.currentPlayer().name} · niv. ${g.level} · ${store.tempoName(g.level)}`),
-      progressBar(g.pct, 'Progression vers le niveau suivant')),
+    h('a', { class: 'lvls', href: '#journal', 'aria-label': `Niveaux de ${store.currentPlayer().name}` },
+      Object.entries(store.DOMAINS).map(([k, d]) => {
+        const l = store.domainLevel(k);
+        return h('span', { class: 'lvl-mini', title: `${d.label} : niveau ${l.level} / ${store.MAX_LEVEL}` },
+          h('span', { class: 'lvl-mini-top' }, h('span', null, d.label.slice(0, 1)), h('strong', { class: 'num' }, l.level)),
+          progressBar(l.pct, d.label));
+      })),
     h('button', { type: 'button', class: `midi-chip st-${ms.status}`, onclick: () => midi.connect(), title: ms.inputs.join(', ') || null },
       icon('piano', 'ic sm'), h('span', null, midi.statusLabel(ms))));
 }
@@ -76,7 +81,19 @@ function route() {
     culture: (el, p) => culture.render(el, app, p),
     journal,
   };
+  const dom = Object.entries(store.DOMAINS).find(([, d]) => d.tab === tab);
+  if (dom) view.append(domainStrip(dom[0]));
   cleanup = pages[tab](view, params) || null;
+}
+
+function domainStrip(key) {
+  const d = store.DOMAINS[key];
+  const l = store.domainLevel(key);
+  return h('div', { class: 'dom-strip' },
+    h('span', { class: 'hand' }, `${d.label} · niveau ${l.level}`, h('span', { class: 'muted' }, ` / ${store.MAX_LEVEL}`)),
+    h('span', { class: 'muted small' }, l.title),
+    progressBar(l.pct, `Progression ${d.label}`),
+    h('span', { class: 'muted small num' }, l.level >= store.MAX_LEVEL ? 'Niveau maximum' : `${Math.round(l.into)} / ${Math.round(l.need)} XP vers le niveau ${l.level + 1}`));
 }
 
 // ---------- Aujourd'hui ----------
@@ -195,7 +212,6 @@ function work(el, params) {
 // ---------- Journal ----------
 function journal(el) {
   const s = store.get();
-  const g = store.globalLevel();
   const ms = midi.getStatus();
   const confirmBox = h('div', { class: 'row', hidden: true },
     h('span', null, 'Effacer toute la progression de ce joueur ?'),
@@ -234,12 +250,19 @@ function journal(el) {
       delBox,
       h('p', { class: 'muted small' }, 'Chaque joueur a sa propre partie sur cet appareil. Quelqu’un qui ouvre l’appli sur son appareil part de zéro et ne voit jamais la tienne.')),
     h('section', { class: 'card stack' },
-      h('div', { class: 'card-head' }, h('h2', null, `Niveau ${g.level} · ${store.tempoName(g.level)}`), h('span', { class: 'muted small num' }, `${s.xp} XP`)),
-      progressBar(g.pct), h('span', { class: 'muted small num' }, `${g.into} / ${g.need} XP avant ${store.tempoName(g.level + 1)}`),
-      h('div', { class: 'skills' }, Object.entries(store.SKILLS).map(([k, label]) => {
-        const l = store.skillLevel(k);
-        return h('div', { class: 'skill' }, h('span', null, label), h('span', { class: 'num muted small' }, `niv. ${l.level}`), progressBar(l.pct, label));
-      }))),
+      h('h2', null, 'Mes niveaux'),
+      h('p', { class: 'muted small' }, `Un niveau par onglet, de 1 à ${store.MAX_LEVEL}. Le niveau ${store.MAX_LEVEL} correspond à un professionnel : la montée est volontairement lente. Il mesure la quantité de pratique réussie, pas un examen de ton niveau réel.`),
+      h('div', { class: 'skills' }, Object.entries(store.DOMAINS).map(([k, d]) => {
+        const l = store.domainLevel(k);
+        const detail = d.skills.length > 1 ? d.skills.map((sk) => `${store.SKILLS[sk]} ${Math.round(s.skills[sk] || 0)} XP`).join(' · ') : `${Math.round(l.xp)} XP`;
+        return h('div', { class: 'skill' },
+          h('span', null, h('strong', null, d.label), h('span', { class: 'muted small' }, ` · ${l.title}`)),
+          h('span', { class: 'num' }, `${l.level} / ${store.MAX_LEVEL}`),
+          progressBar(l.pct, d.label),
+          h('span', { class: 'muted small skill-detail' }, detail));
+      })),
+      h('details', { class: 'small' }, h('summary', null, 'Comment montent les niveaux ?'),
+        h('p', { class: 'muted' }, 'Niveau 2 : 100 XP · niveau 10 : environ 3 100 XP · niveau 30 : environ 27 300 XP · niveau 50 : environ 75 500 XP · niveau 100 : environ 301 000 XP. Avec 40 XP par jour dans un onglet, il faut environ 2 mois et demi pour le niveau 10 et près de 2 ans pour le niveau 30. Titres : Largo (1–9), Larghetto (10–19)… Presto (90–99), Prestissimo (100). Ces paliers sont un choix de conception, pas une mesure scientifique.'))),
     h('section', { class: 'card stack' },
       h('h2', null, 'Équilibre de la semaine'),
       h('p', { class: 'muted small' }, 'XP gagnée par onglet depuis lundi.'),

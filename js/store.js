@@ -9,6 +9,30 @@ export const QUEST_REWARD = 100;
 export const TEMPOS = ['Largo', 'Larghetto', 'Adagio', 'Andante', 'Andantino', 'Moderato', 'Allegretto', 'Allegro', 'Vivace', 'Presto', 'Prestissimo'];
 export const SKILLS = { rythme: 'Rythme', oreille: 'Oreille', theorie: 'Théorie', harmonie: 'Harmonie', morceaux: 'Morceaux', culture: 'Culture' };
 
+// Un niveau par onglet, de 1 à 100. 100 = niveau d'un professionnel : la courbe est volontairement lente.
+export const MAX_LEVEL = 100;
+export const DOMAINS = {
+  morceaux: { label: 'Morceaux', skills: ['morceaux'], tab: 'morceaux' },
+  travail: { label: 'Travail', skills: ['rythme', 'harmonie'], tab: 'travail' },
+  oreille: { label: 'Oreille', skills: ['oreille', 'theorie'], tab: 'oreille' },
+  culture: { label: 'Culture', skills: ['culture'], tab: 'culture' },
+};
+export const SKILL_DOMAIN = { morceaux: 'morceaux', rythme: 'travail', harmonie: 'travail', oreille: 'oreille', theorie: 'oreille', culture: 'culture' };
+// XP cumulée pour atteindre le niveau L : 30·(L−1)² + 70·(L−1)
+// niv. 2 = 100 XP · niv. 10 ≈ 3 100 · niv. 30 ≈ 27 300 · niv. 50 ≈ 75 500 · niv. 100 ≈ 301 000
+export function xpForLevel(L) { return 30 * (L - 1) ** 2 + 70 * (L - 1); }
+export function domainXp(d) { return DOMAINS[d].skills.reduce((t, k) => t + (state.skills[k] || 0), 0); }
+export function domainLevel(d) {
+  const xp = domainXp(d);
+  let L = 1;
+  while (L < MAX_LEVEL && xp >= xpForLevel(L + 1)) L++;
+  const from = xpForLevel(L);
+  const to = L < MAX_LEVEL ? xpForLevel(L + 1) : from;
+  return { level: L, xp, into: xp - from, need: to - from, pct: L >= MAX_LEVEL ? 100 : Math.round(((xp - from) / (to - from)) * 100), title: titleFor(L) };
+}
+// Titre selon la dizaine : Largo (1–9), Larghetto (10–19)… Presto (90–99), Prestissimo (100)
+export function titleFor(L) { return TEMPOS[Math.min(TEMPOS.length - 1, Math.floor(L / 10))]; }
+
 const MODULES = [
   { kind: 'theme', name: 'Thème' },
   { kind: 'comping', name: 'Accompagnement' },
@@ -126,9 +150,7 @@ export function levelInfo(xp, scale = 1) {
   while (xp >= acc + need) { acc += need; level++; need = (100 + 50 * (level - 1)) * scale; }
   return { level, into: xp - acc, need, pct: Math.min(100, Math.round(((xp - acc) / need) * 100)) };
 }
-export function tempoName(level) { return level <= TEMPOS.length ? TEMPOS[level - 1] : `Prestissimo ${level - TEMPOS.length + 1}`; }
-export function globalLevel() { return levelInfo(state.xp); }
-export function skillLevel(skill) { return levelInfo(state.skills[skill] || 0, 0.5); }
+export function skillLevel(skill) { return domainLevel(SKILL_DOMAIN[skill] || 'travail'); }
 
 // ---------- Dates ----------
 export function today(d = new Date()) {
@@ -151,8 +173,8 @@ export function award(skill, amount, entry = {}) {
   if (state.daily.date !== today()) state.daily = { date: today(), xp: 0 };
   const room = Math.max(0, DAILY_CAP - state.daily.xp);
   const gained = Math.min(amount, room);
-  const beforeG = globalLevel().level;
-  const beforeS = skillLevel(skill).level;
+  const dom = SKILL_DOMAIN[skill];
+  const before = dom ? domainLevel(dom).level : null;
   state.xp += gained;
   state.skills[skill] = (state.skills[skill] || 0) + gained;
   state.daily.xp += gained;
@@ -161,8 +183,7 @@ export function award(skill, amount, entry = {}) {
   const result = {
     gained,
     capped: gained < amount,
-    levelUp: globalLevel().level > beforeG ? globalLevel().level : null,
-    skillUp: skillLevel(skill).level > beforeS ? skillLevel(skill).level : null,
+    domainUp: dom && domainLevel(dom).level > before ? { domain: dom, label: DOMAINS[dom].label, ...domainLevel(dom), titleChanged: titleFor(domainLevel(dom).level) !== titleFor(before) } : null,
     quests: [],
   };
   result.quests = checkQuests();
@@ -190,19 +211,19 @@ export function historyWeek() { const w = isoWeek().id; return state.history.fil
 const jamSongs = () => state.songs.filter((s) => s.jam);
 const QUEST_POOL = [
   {
-    id: 'repertoire', always: true,
+    id: 'repertoire', domain: 'morceaux', always: true,
     text: () => 'Travailler chaque morceau de la jam au moins une fois',
     why: 'Ta priorité du moment, c’est la jam : chaque morceau doit avancer chaque semaine.',
     target: () => Math.max(1, jamSongs().length),
     count: (hs) => new Set(hs.filter((h) => (h.activity === 'morceau' || h.activity === 'playalong') && jamSongs().some((s) => s.id === h.song)).map((h) => h.song)).size,
   },
   {
-    id: 'regularite', text: () => 'Pratiquer 5 jours différents', target: () => 5,
+    id: 'regularite', domain: 'equilibre', text: () => 'Pratiquer 5 jours différents', target: () => 5,
     why: 'Répartir le travail sur plusieurs jours aide à retenir (effet d’espacement).',
     count: (hs) => new Set(hs.filter((h) => !h.bonus).map((h) => h.date)).size,
   },
   {
-    id: 'melange', text: () => 'Mélanger au moins 3 types d’exercices dans une même journée, 3 jours', target: () => 3,
+    id: 'melange', domain: 'equilibre', text: () => 'Mélanger au moins 3 types d’exercices dans une même journée, 3 jours', target: () => 3,
     why: 'Alterner les exercices plutôt que répéter un seul bloc favorise la rétention.',
     count: (hs) => {
       const byDay = {};
@@ -211,7 +232,7 @@ const QUEST_POOL = [
     },
   },
   {
-    id: 'lent-vite', text: () => 'Réussir un rythme à 90 % à 70 BPM ou moins, puis le même 20 BPM plus vite à 80 %', target: () => 1,
+    id: 'lent-vite', domain: 'travail', text: () => 'Réussir un rythme à 90 % à 70 BPM ou moins, puis le même 20 BPM plus vite à 80 %', target: () => 1,
     why: 'Ralentir jusqu’à jouer juste, puis accélérer : c’est ce que font les pianistes qui progressent le mieux.',
     count: (hs) => {
       const r = hs.filter((h) => h.activity === 'rythme' && h.bpm).slice().reverse();
@@ -224,12 +245,12 @@ const QUEST_POOL = [
     },
   },
   {
-    id: 'contexte', text: () => 'Jouer 3 fois sur la grille d’un morceau avec l’accompagnement', target: () => 3,
+    id: 'contexte', domain: 'morceaux', text: () => 'Jouer 3 fois sur la grille d’un morceau avec l’accompagnement', target: () => 3,
     why: 'La technique sert les morceaux : la jouer en situation, sur une grille, la rend utilisable.',
     count: (hs) => hs.filter((h) => h.activity === 'playalong').length,
   },
   {
-    id: 'ecoute', text: () => 'Noter 3 écoutes actives dans ta liste d’écoute', target: () => 3,
+    id: 'ecoute', domain: 'culture', text: () => 'Noter 3 écoutes actives dans ta liste d’écoute', target: () => 3,
     why: 'Écouter les maîtres de près nourrit le son, le phrasé et le vocabulaire.',
     count: (hs) => hs.filter((h) => h.activity === 'ecoute').length,
   },
@@ -245,7 +266,7 @@ export function weekQuests() {
   picks.push(rotating[n % rotating.length], rotating[(n + 2) % rotating.length]);
   return picks.map((q) => {
     const target = q.target();
-    return { id: q.id, text: q.text(), why: q.why, target, progress: Math.min(target, q.count(hs)), done: claimed.includes(q.id) };
+    return { id: q.id, domain: q.domain, text: q.text(), why: q.why, target, progress: Math.min(target, q.count(hs)), done: claimed.includes(q.id) };
   });
 }
 
@@ -256,6 +277,9 @@ function checkQuests() {
     if (!q.done && q.progress >= q.target) {
       state.quests[id] = [...(state.quests[id] || []), q.id];
       state.xp += QUEST_REWARD;
+      // la récompense va dans l'onglet concerné ; les quêtes d'équilibre la répartissent entre les quatre
+      const split = q.domain === 'equilibre' ? ['morceaux', 'rythme', 'oreille', 'culture'] : [DOMAINS[q.domain].skills[0]];
+      split.forEach((k) => { state.skills[k] = (state.skills[k] || 0) + QUEST_REWARD / split.length; });
       state.history.unshift({ t: new Date().toISOString(), date: today(), skill: 'bonus', xp: QUEST_REWARD, raw: QUEST_REWARD, activity: 'quete', label: `Quête réussie : ${q.text}`, bonus: true });
       done.push(q);
     }
