@@ -10,6 +10,7 @@ import * as partitions from './partitions.js';
 import * as v3 from './v3.js';
 import * as sync from './sync.js';
 import * as modes from './modes.js';
+import * as maj from './maj.js';
 import { band, sprite } from './pixel.js';
 
 const TABS = [
@@ -345,7 +346,8 @@ function journal(el) {
         h('button', { class: 'btn ghost sm', type: 'button', onclick: async () => { await midi.connect(); route(); } }, 'Connecter')),
       h('div', { class: 'row wrap' },
         h('span', null, s.settings.calibrated ? `Décalage compensé : ${s.settings.latencyMs} ms` : 'Pas encore calibré'),
-        h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { store.setSetting('calibrated', false); app.open('travail', { sub: 'rythme' }); } }, 'Recalibrer'))),
+        h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { store.setSetting('calibrated', false); app.open('travail', { sub: 'rythme' }); } }, 'Recalibrer')),
+      versionLine()),
     syncSection(),
     h('section', { class: 'card stack' }, h('h2', null, 'Sauvegarde'),
       h('p', { class: 'muted small' }, 'La progression est enregistrée dans ce navigateur. En attendant la synchro automatique : exporte ici, puis importe le fichier sur l’autre appareil.'),
@@ -359,6 +361,12 @@ function journal(el) {
         h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { confirmBox.hidden = false; } }, 'Tout effacer')),
       confirmBox),
   );
+}
+
+function versionLine() {
+  const el = h('p', { class: 'muted small' }, 'Version de l’appli : …');
+  maj.version().then((v) => { el.textContent = `Version de l’appli : ${v || 'inconnue'}`; });
+  return el;
 }
 
 // ---------- Synchro ----------
@@ -402,6 +410,7 @@ window.addEventListener('hashchange', route);
 route();
 sync.onStatus((st) => { renderTop(); if (st.pulled) { applyTheme(); route(); toast('Progression récupérée depuis ton autre appareil.'); } });
 sync.init();
+maj.start();
 if (navigator.permissions && midi.supported) {
   navigator.permissions.query({ name: 'midi' }).then((p) => { if (p.state === 'granted') midi.connect(); }).catch(() => {});
 }

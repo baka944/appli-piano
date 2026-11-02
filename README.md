@@ -19,3 +19,5 @@ Appli d'entraînement au piano jazz, pensée comme un jeu : XP, niveaux nommés 
 ## Technique
 
 Site statique sans dépendance ni étape de build : `index.html`, `css/`, `js/` (modules ES). Publié avec GitHub Pages.
+
+À chaque publication, changer `version.json` : c'est ce qui affiche le bandeau « Nouvelle version » sur les appareils où l'appli est ouverte. `sw.js` va chercher les fichiers sur le réseau en priorité, pour contourner le cache de 10 minutes de GitHub Pages.
