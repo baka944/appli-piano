@@ -102,7 +102,23 @@ export const QUAL = {
   maj7: { third: 4, fifth: 7, seventh: 11, sym: 'maj7' },
   m7: { third: 3, fifth: 7, seventh: 10, sym: 'm7' },
   dom7: { third: 4, fifth: 7, seventh: 10, sym: '7' },
+  m7b5: { third: 3, fifth: 6, seventh: 10, sym: 'm7♭5', fr: 'demi-diminué' },
+  dim7: { third: 3, fifth: 6, seventh: 9, sym: '°7', fr: 'diminué 7' },
+  mmaj7: { third: 3, fifth: 7, seventh: 11, sym: 'm(maj7)', fr: 'mineur majeur 7' },
+  maj6: { third: 4, fifth: 7, seventh: 9, sym: '6', fr: 'majeur 6' },
+  m6: { third: 3, fifth: 7, seventh: 9, sym: 'm6', fr: 'mineur 6' },
+  sus: { third: 5, fifth: 7, seventh: 10, sym: '7sus4', fr: '7sus4 (la quarte remplace la tierce)' },
 };
+QUAL.maj7.fr = 'majeur 7'; QUAL.m7.fr = 'mineur 7'; QUAL.dom7.fr = 'septième de dominante';
+// Enchaînements des fondamentales : intervalle (demi-tons) entre deux accords successifs.
+export const CHAINS = [
+  ['one', 'Une seule tonalité', 0],
+  ['quartes', 'Par quartes (do, fa, si♭…)', 5],
+  ['tm', 'Par tierces mineures (do, mi♭, sol♭, la)', 3],
+  ['tM', 'Par tierces majeures (do, mi, la♭)', 4],
+  ['ton', 'Ton par ton (do, ré, mi, sol♭…)', 2],
+  ['demi', 'Demi-ton par demi-ton', 1],
+];
 
 export const CONSIGNES = [
   'Arpèges seulement : joue uniquement les notes de l’accord.',

@@ -5,10 +5,11 @@ import * as audio from './audio.js';
 import * as midi from './midi.js';
 import { screenKeyboard, chordCollector, mark } from './keyboard.js';
 import { KEYS, CIRCLE_FOURTHS, nameFr, pc, CHORDS, chordSymbol, transpose, majorScale, parseGrid, PROGRESSIONS, realize } from './music.js';
-import { LICKS, CONTEXTS, CONTEXT_TYPE, FIORITURES, VOICINGS, QUAL, CONSIGNES } from './licks-data.js';
+import { LICKS, CONTEXTS, CONTEXT_TYPE, FIORITURES, VOICINGS, QUAL, CONSIGNES, CHAINS } from './licks-data.js';
 import * as playalong from './playalong.js';
 import { allPatterns } from './rythme.js';
 
+const gcd = (a, b) => (b ? gcd(b, a % b) : a);
 const PC = ['do', 'do♯', 'ré', 'mi♭', 'mi', 'fa', 'fa♯', 'sol', 'la♭', 'la', 'si♭', 'si'];
 const keyLabel = (k) => nameFr(k);
 function inputHint() {
@@ -505,16 +506,33 @@ export function voicings(root, app) {
   let vId = VOICINGS.some((x) => x.id === st.voicing) ? st.voicing : 'shell';
   let keyIdx = st.voicingKey ?? 0;
   let progId = st.voicingProg || 'ii-v-i';
-  let cycle = st.voicingCycle || 'one';
-  const save = () => { Object.assign(st, { voicing: vId, voicingKey: keyIdx, voicingProg: progId, voicingCycle: cycle }); store.save(); };
+  let cycle = st.voicingCycle === 'all' ? 'quartes' : st.voicingCycle || 'one';
+  let full = st.voicingFull ?? true; // true : jusqu'à avoir fait les 12 tonalités
+  let target = st.voicingTarget || 'maj7'; // type d'accord ou 'prog' pour les voicings de base
+  const save = () => { Object.assign(st, { voicing: vId, voicingKey: keyIdx, voicingProg: progId, voicingCycle: cycle, voicingFull: full, voicingTarget: target }); store.save(); };
+  const keyOfPc = (x) => KEYS.find((k) => pc(k) === ((x % 12) + 12) % 12);
+
+  // Suite des fondamentales : un cycle depuis la tonalité choisie, puis on monte d'un demi-ton et on recommence jusqu'aux 12.
+  function keySeq() {
+    const step = CHAINS.find((c) => c[0] === cycle)?.[2] || 0;
+    const s0 = pc(KEYS[keyIdx]);
+    if (!step) return [KEYS[keyIdx]];
+    const len = 12 / gcd(12, step);
+    const rounds = full ? 12 / len : 1;
+    const out = [];
+    for (let r = 0; r < rounds; r++) for (let i = 0; i < len; i++) out.push(keyOfPc(s0 + r + i * step));
+    return out;
+  }
+  const qualOf = (v) => (v.on === 'prog' ? target : v.on);
 
   function chordList(v) {
-    const keys = cycle === 'all' ? CIRCLE_FOURTHS : [KEYS[keyIdx]];
-    if (v.on === 'prog') {
+    const keys = keySeq();
+    if (v.on === 'prog' && target === 'prog') {
       const p = PROGRESSIONS.find((x) => x.id === progId);
       return keys.flatMap((k) => realize(p, k)).map((c) => ({ symbol: c.symbol, rootPc: c.rootPc, rel: v.build(QUAL[c.q]) }));
     }
-    return keys.map((k) => ({ symbol: nameFr(k) + ' ' + v.sym, rootPc: pc(k), rel: v.build(QUAL[v.on]) }));
+    const q = QUAL[qualOf(v)];
+    return keys.map((k) => ({ symbol: `${nameFr(k)} ${v.on === 'prog' ? q.sym : v.sym}`, rootPc: pc(k), rel: v.build(q) }));
   }
 
   function home() {
@@ -533,13 +551,20 @@ export function voicings(root, app) {
         h('p', null, v.desc),
         v.source ? h('a', { class: 'small', href: v.source.url, target: '_blank', rel: 'noopener' }, `Source : ${v.source.label}`) : null,
         h('p', { class: 'hand big-notes' }, `${ex.symbol} : ${exNotes.join(' – ')}`),
-        v.on === 'prog' ? [h('label', { for: 'vc-prog' }, 'Progression'),
+        v.on === 'prog' ? [h('label', { for: 'vc-target' }, 'Travailler sur'),
+          h('select', { id: 'vc-target', onchange: (e) => { target = e.target.value; save(); home(); } },
+            Object.entries(QUAL).map(([k, q]) => h('option', { value: k, selected: k === target }, `Accord ${q.sym} (${q.fr})`)),
+            h('option', { value: 'prog', selected: target === 'prog' }, 'Une progression d’accords'))] : h('p', { class: 'muted small' }, `Ce voicing se joue sur un accord ${QUAL[v.on].sym} (${QUAL[v.on].fr}).`),
+        v.on === 'prog' && target === 'prog' ? [h('label', { for: 'vc-prog' }, 'Progression'),
           h('select', { id: 'vc-prog', onchange: (e) => { progId = e.target.value; save(); home(); } },
-            PROGRESSIONS.filter((p) => p.chords.every((c) => QUAL[c.q])).map((p) => h('option', { value: p.id, selected: p.id === progId }, p.name)))]
-          : h('p', { class: 'muted small' }, `Sur un accord ${v.sym}, dans une tonalité ou dans les 12.`),
-        h('label', { for: 'vc-cycle' }, 'Tonalités'),
-        h('select', { id: 'vc-cycle', onchange: (e) => { cycle = e.target.value; save(); home(); } }, [['one', 'Une tonalité'], ['all', 'Les 12, par quartes']].map(([k, l]) => h('option', { value: k, selected: k === cycle }, l))),
-        cycle === 'one' ? h('select', { id: 'vc-key', 'aria-label': 'Tonalité', onchange: (e) => { keyIdx = +e.target.value; save(); home(); } }, KEYS.map((k, i) => h('option', { value: i, selected: i === keyIdx }, nameFr(k)))) : null,
+            PROGRESSIONS.filter((p) => p.chords.every((c) => QUAL[c.q])).map((p) => h('option', { value: p.id, selected: p.id === progId }, p.name)))] : null,
+        h('label', { for: 'vc-cycle' }, 'Enchaînement'),
+        h('select', { id: 'vc-cycle', onchange: (e) => { cycle = e.target.value; save(); home(); } }, CHAINS.map(([k, l]) => h('option', { value: k, selected: k === cycle }, l))),
+        h('label', { for: 'vc-key' }, cycle === 'one' ? 'Tonalité' : 'Départ'),
+        h('select', { id: 'vc-key', onchange: (e) => { keyIdx = +e.target.value; save(); home(); } }, KEYS.map((k, i) => h('option', { value: i, selected: i === keyIdx }, nameFr(k)))),
+        cycle !== 'one' && !['quartes', 'demi'].includes(cycle) ? h('label', { class: 'check' }, h('input', { id: 'vc-full', type: 'checkbox', checked: full, onchange: (e) => { full = e.target.checked; save(); home(); } }),
+          'Continuer jusqu’aux 12 tonalités (on remonte d’un demi-ton à chaque tour)') : null,
+        h('p', { class: 'muted small' }, `Ordre : ${keySeq().map((k) => nameFr(k)).join(', ')}.`),
         h('div', { class: 'row' },
           h('button', { class: 'btn ghost', type: 'button', onclick: async () => { await audio.unlock(); const base = (v.two ? 36 : 48) + ex.rootPc; audio.chord(ex.rel.map((x) => base + x), null, 2, 0.8); } }, 'Écouter'),
           h('button', { class: 'btn', type: 'button', onclick: drill }, 'Commencer'))),
@@ -594,8 +619,8 @@ export function voicings(root, app) {
     function done() {
       cleanup();
       const score = Math.round((first / chords.length) * 100);
-      store.setBest(`voicing:${vId}`, score);
-      const out = store.award('harmonie', Math.min(40, 8 + chords.length) + (score >= 85 ? 5 : 0), { activity: 'voicings', label: `Voicing ${v.name}${cycle === 'all' ? ' · 12 tonalités' : ''}`, score });
+      store.setBest(`voicing:${vId}${v.on === 'prog' ? `:${target}` : ''}`, score);
+      const out = store.award('harmonie', Math.min(40, 8 + chords.length) + (score >= 85 ? 5 : 0), { activity: 'voicings', label: `Voicing ${v.name}${v.on === 'prog' && target !== 'prog' ? ` sur ${QUAL[target].sym}` : ''}${cycle !== 'one' ? ` · ${CHAINS.find((c) => c[0] === cycle)[1].split(' (')[0].toLowerCase()}` : ''}`, score });
       app.celebrate(out);
       root.replaceChildren(h('section', { class: 'card stack center' }, h('div', { class: 'score' }, `${score} %`), h('p', { class: 'muted' }, 'Accords trouvés du premier coup.'), h('div', { class: 'xp-gain' }, `+${out.gained} XP`),
         h('div', { class: 'row center' }, h('button', { class: 'btn ghost', type: 'button', onclick: home }, 'Retour'), h('button', { class: 'btn', type: 'button', onclick: drill }, 'Rejouer'))));
