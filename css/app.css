@@ -357,3 +357,20 @@ input[type="url"], input[type="email"], input[type="password"] { width: 100%; bo
 .harmo-list > div { display: flex; flex-direction: column; background: var(--bg); border-radius: 8px; padding: 6px 8px; }
 .harmo-list strong { font-size: 18px; }
 .metro-box { border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+
+/* Licks : frise rythmique */
+.lick-tl { display: block; max-width: none; }
+.lick-tl .tl-bar { stroke: var(--ink); stroke-width: 1.5; }
+.lick-tl .tl-beat { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 3; }
+.lick-tl .tl-num { font-size: 11px; fill: var(--ink); font-weight: 700; }
+.lick-tl .tl-num.et { fill: var(--muted); font-weight: 400; }
+.lick-tl .tl-note { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
+.lick-tl .tl-note.g-parfait { fill: var(--g-parfait); stroke: var(--g-parfait); }
+.lick-tl .tl-note.g-bien { fill: var(--g-bien); stroke: var(--g-bien); }
+.lick-tl .tl-note.g-juste { fill: var(--g-juste); stroke: var(--g-juste); }
+.lick-tl .tl-note.g-loin { fill: var(--g-loin); stroke: var(--g-loin); }
+.lick-tl .tl-name { font-size: 12px; fill: var(--ink); font-weight: 700; pointer-events: none; }
+.lick-tl .tl-note[class*="g-"] + .tl-name { fill: var(--bg); }
+.lick-tl .tl-dev { font-size: 10px; fill: var(--ink); }
+.lick-tl .tl-head { stroke: var(--accent); stroke-width: 2.5; }
+.lh-line { min-height: 1.2em; }

@@ -1,5 +1,5 @@
 // V3 : licks et relevés, voicings et fioritures, impro guidée, dictée de motifs.
-import { h, toast, pick, weightedPick, shuffle } from './ui.js';
+import { h, svg, toast, pick, weightedPick, shuffle, sleep } from './ui.js';
 import * as store from './store.js';
 import * as audio from './audio.js';
 import * as midi from './midi.js';
@@ -45,16 +45,60 @@ function playLine(notes, ctxKey, tonicPc, { bpm = 120, swing = true, oct = false
   });
 }
 
-// Vérifie une suite de classes de hauteur jouée note à note
+// ---------- Main gauche / main droite ----------
+// Le lick se joue à la main droite pendant que la main gauche plaque l'accord.
+// 1) Les notes sous le point de partage sont la main gauche : ignorées.
+// 2) Les notes frappées ensemble (moins de 35 ms d'écart) forment un accord : on ne garde que la note du haut,
+//    et seulement si c'est la note attendue (cas d'une octave à la main droite, ou d'une note jouée avec l'accord).
+export const SPLITS = [[60, 'Sous le do central (do3)'], [55, 'Sous sol2'], [64, 'Sous mi3'], [0, 'Aucun : tout compte']];
+const splitOf = () => store.get().settings.lickSplit ?? 60;
+const pcList = (notes) => [...new Set(notes.map((m) => PC[m % 12]))].join(' ');
+function handFilter(onRH, { expected = () => null, onLH = () => {} } = {}) {
+  const split = splitOf();
+  let buf = [];
+  let timer = null;
+  const flush = () => {
+    const g = buf;
+    buf = [];
+    timer = null;
+    const low = g.filter((e) => e.note < split);
+    const high = g.filter((e) => e.note >= split);
+    const ignored = low.map((e) => e.note);
+    if (g.length === 1 && high.length) onRH(high[0]);
+    else if (high.length) {
+      const top = high.reduce((a, b) => (b.note > a.note ? b : a));
+      const exp = expected();
+      if (exp != null && top.note % 12 === exp) {
+        onRH(top);
+        high.forEach((e) => { if (e !== top && e.note % 12 !== exp) ignored.push(e.note); });
+      } else high.forEach((e) => ignored.push(e.note));
+    }
+    if (ignored.length) onLH(ignored.sort((a, b) => a - b));
+  };
+  const off = midi.onNote((e) => {
+    if (e.note == null) return;
+    if (e.source === 'screen') { onRH(e); return; }
+    buf.push(e);
+    if (!timer) timer = setTimeout(flush, 35);
+  });
+  return () => { off(); clearTimeout(timer); };
+}
+function lhLine() {
+  const el = h('p', { class: 'muted small lh-line' }, splitOf() ? `Main gauche (ignorée) : sous ${PC[splitOf() % 12]}${Math.floor(splitOf() / 12) - 2}.` : 'Main gauche : les accords plaqués sont ignorés.');
+  return { el, show: (notes) => { el.textContent = `Main gauche (ignorée) : ${pcList(notes)}`; } };
+}
+
+// Vérifie une suite de classes de hauteur jouée note à note (à ton rythme)
 function sequenceDrill(container, expectedPcs, { onDone, labelOf = (p) => PC[p], showNames = true } = {}) {
   let i = 0;
   let errors = 0;
   const chips = h('div', { class: 'chips seq' }, expectedPcs.map((p, k) => h('span', { class: `chip${k === 0 ? ' now' : ''}`, 'data-k': k }, showNames ? labelOf(p) : '?')));
   const msg = h('p', { 'aria-live': 'polite' }, showNames ? `Commence par ${labelOf(expectedPcs[0])}.` : 'À toi de jouer.');
   const kb = screenKeyboard({ low: 48, octaves: 2 });
-  container.append(chips, msg, kb, inputHint());
-  const off = midi.onNote((e) => {
-    if (e.note == null || i >= expectedPcs.length) return;
+  const lh = lhLine();
+  container.append(chips, msg, lh.el, kb, inputHint());
+  const off = handFilter((e) => {
+    if (i >= expectedPcs.length) return;
     if (e.note % 12 === expectedPcs[i]) {
       const chip = chips.querySelector(`[data-k="${i}"]`);
       chip.className = 'chip done';
@@ -67,8 +111,133 @@ function sequenceDrill(container, expectedPcs, { onDone, labelOf = (p) => PC[p],
       errors++;
       msg.textContent = `Pas cette note (${PC[e.note % 12]}).`;
     }
-  });
+  }, { expected: () => expectedPcs[i], onLH: lh.show });
   const cleanup = () => { off(); kb.destroy && kb.destroy(); };
+  return cleanup;
+}
+
+// ---------- Rythme des licks ----------
+const DUREES = { 0.5: 'double croche', 1: 'croche', 1.5: 'croche pointée', 2: 'noire', 3: 'noire pointée', 4: 'blanche', 6: 'blanche pointée', 8: 'ronde' };
+const SUB = { 0: '', 0.5: 'e', 1: 'et', 1.5: 'a' };
+// Où tombe chaque note : temps 1 à 4, « et » = la croche entre deux temps, « e » et « a » = les doubles croches.
+function lickPositions(notes) {
+  let cum = 0;
+  return notes.map(([, d]) => {
+    const p = cum;
+    cum += d;
+    const beat = Math.floor(p / 2) % 4 + 1;
+    const sub = SUB[Math.round((p % 2) * 2) / 2] ?? '';
+    return { p, d, count: sub ? `${beat} ${sub}` : String(beat), bar: Math.floor(p / 8) };
+  });
+}
+export const lickSwings = (l) => !/funk|latin|ballade|classique/i.test(l.style);
+// Frise : une case par note, longueur = durée, avec les temps numérotés. Renvoie l'élément et une fonction de mise à jour.
+function lickTimeline(l, tpc) {
+  const pos = lickPositions(l.notes);
+  const total = pos.length ? pos[pos.length - 1].p + pos[pos.length - 1].d : 8;
+  const beats = Math.max(4, Math.ceil(total / 2 / 4) * 4);
+  const U = 26; // pixels par croche
+  const W = beats * 2 * U + 8;
+  let m = `<svg class="lick-tl" viewBox="0 0 ${W} 74" width="${W}" height="74" role="img" aria-label="Rythme du lick">`;
+  for (let b = 0; b <= beats; b++) {
+    const x = 4 + b * 2 * U;
+    m += `<line x1="${x}" y1="${b % 4 === 0 ? 4 : 14}" x2="${x}" y2="58" class="${b % 4 === 0 ? 'tl-bar' : 'tl-beat'}"/>`;
+    if (b < beats) m += `<text x="${x + 3}" y="70" class="tl-num">${b % 4 + 1}</text><text x="${x + U + 2}" y="70" class="tl-num et">et</text>`;
+  }
+  pos.forEach((q, k) => {
+    const x = 4 + q.p * U;
+    m += `<g data-k="${k}"><rect x="${x + 1}" y="20" width="${Math.max(8, q.d * U - 2)}" height="30" rx="4" class="tl-note"/><text x="${x + 4}" y="40" class="tl-name">${PC[(tpc + l.notes[k][0]) % 12]}</text></g>`;
+  });
+  m += `<line x1="4" y1="2" x2="4" y2="60" class="tl-head" visibility="hidden"/></svg>`;
+  const el = svg(m);
+  const wrap = h('div', { class: 'tl-wrap' }, el);
+  return {
+    el: wrap, pos, beats, U,
+    grade: (k, cls, txt) => { const g = el.querySelector(`[data-k="${k}"]`); if (!g) return; g.querySelector('rect').setAttribute('class', `tl-note ${cls}`); if (txt) { const t = document.createElementNS('http://www.w3.org/2000/svg', 'text'); t.setAttribute('x', g.querySelector('rect').getAttribute('x')); t.setAttribute('y', 14); t.setAttribute('class', 'tl-dev'); t.textContent = txt; el.append(t); } },
+    head: (eighths) => { const ln = el.querySelector('.tl-head'); if (eighths == null) { ln.setAttribute('visibility', 'hidden'); return; } ln.setAttribute('visibility', 'visible'); const x = 4 + eighths * U; ln.setAttribute('x1', x); ln.setAttribute('x2', x); },
+    reset: () => { el.querySelectorAll('.tl-dev').forEach((t) => t.remove()); el.querySelectorAll('rect.tl-note').forEach((r) => r.setAttribute('class', 'tl-note')); },
+  };
+}
+function rhythmText(l) {
+  return lickPositions(l.notes).map((q, k) => `${PC[l.notes[k][0] % 12]} : ${DUREES[q.d] || `${q.d} croches`}, sur « ${q.count} »`);
+}
+
+// Exercice en rythme : décompte d'une mesure, métronome, puis chaque note est notée sur la hauteur et la mise en place.
+function rhythmDrill(container, l, tpc, { bpm, swing, backing, onDone }) {
+  const s = store.get();
+  const pcs = l.notes.map(([x]) => (tpc + x) % 12);
+  const tl = lickTimeline(l, tpc);
+  const big = h('div', { class: 'beat-big' }, '…');
+  const msg = h('p', { 'aria-live': 'polite' }, 'Décompte d’une mesure, puis joue le lick avec le métronome.');
+  const lh = lhLine();
+  const kb = screenKeyboard({ low: 48, octaves: 2 });
+  container.append(big, tl.el, msg, lh.el, kb, inputHint());
+  let stopped = false;
+  let off = () => {};
+  const cleanup = () => { stopped = true; off(); kb.destroy && kb.destroy(); };
+  (async () => {
+    const c = await audio.unlock();
+    const beat = 60 / bpm;
+    const e8 = beat / 2;
+    const start = c.currentTime + 0.4;
+    const rec = start + 4 * beat;
+    const totalBeats = 4 + tl.beats;
+    for (let b = 0; b < totalBeats; b++) audio.click(start + b * beat, b % 4 === 0 ? 'accent' : 'beat');
+    if (backing && CONTEXTS[l.over]) {
+      let t = rec;
+      CONTEXTS[l.over].chords.forEach(([r, semis, , bars]) => {
+        const root = 48 + ((tpc + r) % 12);
+        audio.tone(root - 12, t, bars * 4 * beat * 0.95, 0.6);
+        audio.chord(semis.slice(1).map((x) => root + x), t, bars * 4 * beat * 0.9, 0.3);
+        t += bars * 4 * beat;
+      });
+    }
+    const onsetCtx = tl.pos.map((q) => rec + q.p * e8 + (swing && q.p % 1 === 0 && q.p % 2 === 1 ? beat * 0.16 : 0));
+    await sleep(150);
+    if (stopped) return;
+    const map = audio.clockMap();
+    const lat = s.settings.latencyMs || 0;
+    const exp = onsetCtx.map((t) => map(t) + lat);
+    const recPerf = map(rec) + lat;
+    const tol = Math.min(90, Math.max(40, beat * 1000 * 0.12));
+    const res = pcs.map(() => null);
+    let i = 0;
+    off = handFilter((e) => {
+      if (stopped || i >= pcs.length) return;
+      if (e.t < recPerf - beat * 1000 * 0.75) return; // pendant le décompte
+      while (i < pcs.length - 1 && e.t - exp[i] > (exp[i + 1] - exp[i]) * 0.6) { tl.grade(i, 'g-loin', 'oubliée'); i++; }
+      const dev = e.t - exp[i];
+      const okPitch = e.note % 12 === pcs[i];
+      res[i] = { dev, okPitch, note: e.note };
+      const a = Math.abs(dev);
+      const cls = !okPitch ? 'g-loin' : a <= tol * 0.5 ? 'g-parfait' : a <= tol ? 'g-bien' : a <= tol * 2 ? 'g-juste' : 'g-loin';
+      tl.grade(i, cls, !okPitch ? PC[e.note % 12] : a <= tol * 0.5 ? '' : `${dev > 0 ? '+' : '−'}${Math.round(a)}`);
+      i++;
+    }, { expected: () => pcs[i], onLH: lh.show });
+    const lastEnd = rec + (tl.pos.length ? (tl.pos[tl.pos.length - 1].p + tl.pos[tl.pos.length - 1].d) : 8) * e8;
+    const endT = Math.max(lastEnd, rec + tl.beats * beat) + beat * 0.5;
+    const tick = () => {
+      if (stopped) return;
+      const now = c.currentTime;
+      if (now < rec) { big.textContent = now < start ? '…' : String(Math.floor((now - start) / beat) + 1); tl.head(null); }
+      else if (now < endT) { const el = (now - rec) / e8; big.textContent = String(Math.floor(el / 2) % 4 + 1); tl.head(Math.min(el, tl.beats * 2)); }
+      if (now < endT) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    await sleep((endT - c.currentTime) * 1000 + 200);
+    if (stopped) return;
+    off();
+    tl.head(null);
+    res.forEach((r, k) => { if (!r) tl.grade(k, 'g-loin', k >= i ? 'oubliée' : ''); });
+    const hits = res.filter((r) => r && r.okPitch);
+    const inTime = hits.filter((r) => Math.abs(r.dev) <= tol).length;
+    const mean = hits.length ? hits.reduce((a, r) => a + r.dev, 0) / hits.length : null;
+    big.textContent = 'Fin';
+    msg.textContent = `Bonnes notes : ${hits.length}/${pcs.length} · en place (±${Math.round(tol)} ms) : ${inTime}/${pcs.length}.`
+      + (mean == null ? '' : Math.abs(mean) <= tol / 2 ? ' Tu es bien centré sur le temps.' : mean < 0 ? ` Tu joues en avance (${Math.round(-mean)} ms en moyenne).` : ` Tu joues en retard (${Math.round(mean)} ms en moyenne).`);
+    cleanup();
+    onDone({ n: pcs.length, notesOk: hits.length, inTime, mean });
+  })();
   return cleanup;
 }
 
@@ -93,9 +262,10 @@ export function licks(root, app) {
       root.append(h('h2', { class: 'hand-title' }, st));
       LICKS.filter((l) => l.style === st).forEach((l) => {
         const best = store.getBest(`lick:${l.id}`);
+        const bestR = store.getBest(`lick:${l.id}:rythme`);
         root.append(h('button', { type: 'button', class: 'card pick', onclick: () => detail(l) },
           h('span', { class: 'pick-title' }, l.name),
-          h('span', { class: 'muted small' }, `Sur ${CONTEXTS[l.over].label} · ${l.notes.length} notes${best != null ? ` · meilleur : ${best} %` : ''}`)));
+          h('span', { class: 'muted small' }, `Sur ${CONTEXTS[l.over].label} · ${l.notes.length} notes${best != null ? ` · notes : ${best} %` : ''}${bestR != null ? ` · en rythme : ${bestR} %` : ''}`)));
       });
     });
   }
@@ -103,41 +273,86 @@ export function licks(root, app) {
     cleanup();
     const k = KEYS[keyIdx];
     const tpc = pc(k);
+    const st = s.settings;
+    const opt = { bpm: st.lickBpm || 80, swing: lickSwings(l), backing: !!st.lickBacking };
+    const bpmOut = h('output', { class: 'num' }, opt.bpm);
+    const tl = lickTimeline(l, tpc);
     root.replaceChildren(
       h('button', { class: 'back', type: 'button', onclick: home }, '← Tous les licks'),
       h('div', { class: 'page-head' }, h('h1', { class: 'display' }, l.name), h('p', { class: 'lead' }, `${l.style} · sur ${CONTEXTS[l.over].label}`)),
       h('section', { class: 'card stack' },
         h('p', null, l.inspi),
         h('div', { class: 'row wrap' }, h('label', { for: 'lk-key' }, 'Tonalité'), keySelect('lk-key', keyIdx, (e) => detail(l, +e.target.value))),
-        h('p', { class: 'hand big-notes' }, l.notes.map(([s]) => PC[(tpc + s) % 12]).join('  ')),
+        h('h2', { class: 'hand-title sm' }, 'Notes et rythme'),
+        tl.el,
+        h('details', null, h('summary', null, 'Le rythme note par note'),
+          h('ul', { class: 'small' }, rhythmText({ ...l, notes: l.notes.map(([x, d]) => [(tpc + x) % 12, d]) }).map((t) => h('li', null, t)))),
+        h('p', { class: 'muted small' }, `Chaque case dure le temps de la note ; « et » = la croche entre deux temps.${opt.swing ? ' Croches swing : la croche sur le « et » arrive un peu en retard.' : ' Croches droites.'}`),
         h('div', { class: 'row wrap' },
-          h('button', { class: 'btn ghost', type: 'button', onclick: async () => { await audio.unlock(); playLine(l.notes, l.over, tpc, { oct: l.oct }); } }, 'Écouter avec l’accompagnement'),
-          h('button', { class: 'btn ghost', type: 'button', onclick: async () => { await audio.unlock(); playLine(l.notes, l.over, tpc, { oct: l.oct, withBacking: false, bpm: 80 }); } }, 'Écouter lentement'),
-          h('button', { class: 'btn', type: 'button', onclick: () => practice(l, [k]) }, 'Jouer'),
-          h('button', { class: 'btn', type: 'button', onclick: () => practice(l, CIRCLE_FOURTHS) }, 'Dans les 12 tonalités'))));
+          h('button', { class: 'btn ghost', type: 'button', onclick: async () => { await audio.unlock(); playLine(l.notes, l.over, tpc, { oct: l.oct, swing: opt.swing }); } }, 'Écouter avec l’accompagnement'),
+          h('button', { class: 'btn ghost', type: 'button', onclick: async () => { await audio.unlock(); playLine(l.notes, l.over, tpc, { oct: l.oct, withBacking: false, bpm: opt.bpm, swing: opt.swing }); } }, 'Écouter au tempo choisi'))),
+      h('section', { class: 'card stack' },
+        h('h2', { class: 'hand-title sm' }, 'Réglages'),
+        h('label', { for: 'lk-bpm' }, 'Tempo ', bpmOut, ' BPM'),
+        h('input', { id: 'lk-bpm', type: 'range', min: 40, max: 200, step: 2, value: opt.bpm, oninput: (e) => { opt.bpm = +e.target.value; bpmOut.textContent = opt.bpm; store.setSetting('lickBpm', opt.bpm); } }),
+        h('label', { class: 'check' }, h('input', { id: 'lk-swing', type: 'checkbox', checked: opt.swing, onchange: (e) => { opt.swing = e.target.checked; } }), 'Croches swing'),
+        h('label', { class: 'check' }, h('input', { id: 'lk-back', type: 'checkbox', checked: opt.backing, onchange: (e) => { opt.backing = e.target.checked; store.setSetting('lickBacking', opt.backing); } }), 'L’appli joue aussi l’accord (décoche si tu le joues à la main gauche)'),
+        h('label', { for: 'lk-split' }, 'Main gauche : notes ignorées'),
+        h('select', { id: 'lk-split', onchange: (e) => store.setSetting('lickSplit', +e.target.value) }, SPLITS.map(([v, t]) => h('option', { value: v, selected: v === splitOf() }, t))),
+        h('p', { class: 'muted small' }, 'Joue le lick à la main droite au-dessus de ce point. Les notes en dessous, et les accords plaqués (plusieurs notes frappées ensemble), ne comptent pas comme notes du lick.'),
+        h('div', { class: 'row wrap' },
+          h('button', { class: 'btn', type: 'button', onclick: () => practice(l, [k], 'rythme', opt) }, 'Jouer en rythme'),
+          h('button', { class: 'btn ghost', type: 'button', onclick: () => practice(l, [k], 'notes', opt) }, 'Notes seules, à ton rythme')),
+        h('div', { class: 'row wrap' },
+          h('button', { class: 'btn ghost', type: 'button', onclick: () => practice(l, CIRCLE_FOURTHS, 'rythme', opt) }, '12 tonalités en rythme'),
+          h('button', { class: 'btn ghost', type: 'button', onclick: () => practice(l, CIRCLE_FOURTHS, 'notes', opt) }, '12 tonalités, notes seules'))));
   }
-  function practice(l, keys) {
+  function practice(l, keys, mode = 'notes', opt = { bpm: 80, swing: true, backing: false }) {
     cleanup();
     let ki = 0;
     let totalErr = 0;
+    const agg = { n: 0, notesOk: 0, inTime: 0 };
     const box = h('section', { class: 'card stack' });
+    const finish = () => {
+      let score;
+      let label;
+      if (mode === 'rythme') {
+        score = Math.round(((agg.notesOk + agg.inTime) / (2 * agg.n)) * 100);
+        label = `Notes justes : ${Math.round((agg.notesOk / agg.n) * 100)} % · en place : ${Math.round((agg.inTime / agg.n) * 100)} %`;
+        store.setBest(`lick:${l.id}:rythme`, score);
+      } else {
+        const n = l.notes.length * keys.length;
+        score = Math.round((n / (n + totalErr)) * 100);
+        label = 'Notes justes du premier coup';
+        store.setBest(`lick:${l.id}`, score);
+      }
+      const out = store.award('licks', Math.min(40, 6 + keys.length * 3) + (score >= 90 ? 4 : 0) + (mode === 'rythme' ? 3 : 0), { activity: 'licks', label: `Lick ${l.name}${mode === 'rythme' ? ' en rythme' : ''}${keys.length > 1 ? ' · 12 tonalités' : ''}${mode === 'rythme' ? ` · ${opt.bpm} BPM` : ''}`, score });
+      app.celebrate(out);
+      box.replaceChildren(h('div', { class: 'score' }, `${score} %`), h('p', { class: 'muted' }, label), h('div', { class: 'xp-gain' }, `+${out.gained} XP`),
+        h('div', { class: 'row' }, h('button', { class: 'btn ghost', type: 'button', onclick: () => detail(l) }, 'Retour'), h('button', { class: 'btn', type: 'button', onclick: () => practice(l, keys, mode, opt) }, 'Rejouer')));
+    };
     const run = () => {
-      box.replaceChildren(h('p', { class: 'hand-title sm' }, `${l.name} · en ${keyLabel(keys[ki])} (${ki + 1}/${keys.length})`),
-        h('button', { class: 'btn ghost sm', type: 'button', onclick: async () => { await audio.unlock(); playLine(l.notes, l.over, pc(keys[ki]), { oct: l.oct, withBacking: false, bpm: 90 }); } }, 'Écouter'));
-      cleanup = sequenceDrill(box, l.notes.map(([s]) => (pc(keys[ki]) + s) % 12), {
-        onDone: (err) => {
-          totalErr += err;
-          ki++;
-          if (ki < keys.length) { toast(`Bien ! Maintenant en ${keyLabel(keys[ki])}.`); run(); return; }
-          const n = l.notes.length * keys.length;
-          const score = Math.round((n / (n + totalErr)) * 100);
-          store.setBest(`lick:${l.id}`, score);
-          const out = store.award('licks', Math.min(40, 6 + keys.length * 3) + (score >= 90 ? 4 : 0), { activity: 'licks', label: `Lick ${l.name}${keys.length > 1 ? ' · 12 tonalités' : ''}`, score });
-          app.celebrate(out);
-          box.replaceChildren(h('div', { class: 'score' }, `${score} %`), h('div', { class: 'xp-gain' }, `+${out.gained} XP`),
-            h('div', { class: 'row' }, h('button', { class: 'btn ghost', type: 'button', onclick: () => detail(l) }, 'Retour'), h('button', { class: 'btn', type: 'button', onclick: () => practice(l, keys) }, 'Rejouer')));
-        },
-      });
+      const tpc = pc(keys[ki]);
+      box.replaceChildren(h('p', { class: 'hand-title sm' }, `${l.name} · en ${keyLabel(keys[ki])} (${ki + 1}/${keys.length})${mode === 'rythme' ? ` · ${opt.bpm} BPM` : ''}`),
+        h('button', { class: 'btn ghost sm', type: 'button', onclick: async () => { await audio.unlock(); playLine(l.notes, l.over, tpc, { oct: l.oct, withBacking: false, bpm: mode === 'rythme' ? opt.bpm : 90, swing: opt.swing }); } }, 'Écouter'));
+      if (mode === 'rythme') {
+        cleanup = rhythmDrill(box, l, tpc, { ...opt, onDone: (r) => {
+          agg.n += r.n; agg.notesOk += r.notesOk; agg.inTime += r.inTime;
+          const last = ki + 1 >= keys.length;
+          box.append(h('div', { class: 'row' },
+            h('button', { class: 'btn ghost', type: 'button', onclick: () => { agg.n -= r.n; agg.notesOk -= r.notesOk; agg.inTime -= r.inTime; run(); } }, 'Réessayer'),
+            h('button', { class: 'btn', type: 'button', onclick: () => { if (last) finish(); else { ki++; run(); } } }, last ? 'Terminer' : `Suivant : ${keyLabel(keys[ki + 1])}`)));
+        } });
+      } else {
+        cleanup = sequenceDrill(box, l.notes.map(([x]) => (tpc + x) % 12), {
+          onDone: (err) => {
+            totalErr += err;
+            ki++;
+            if (ki < keys.length) { toast(`Bien ! Maintenant en ${keyLabel(keys[ki])}.`); run(); return; }
+            finish();
+          },
+        });
+      }
     };
     root.replaceChildren(h('button', { class: 'back', type: 'button', onclick: () => detail(l) }, '← Retour'), box);
     run();
@@ -167,20 +382,20 @@ export function licks(root, app) {
     const open = new Map();
     const status = h('p', { class: 'hand big-notes', 'aria-live': 'polite' }, '…');
     const kb = screenKeyboard({ low: 48, octaves: 2 });
-    const offOn = midi.onNote((e) => {
-      if (e.note == null) return;
+    const lh = lhLine();
+    const offOn = handFilter((e) => {
       if (t0 == null) t0 = e.t;
       const n = { m: e.note, t: (e.t - t0) / 1000, d: 0.3 };
       notes.push(n);
       open.set(e.note, n);
       status.textContent = notes.map((x) => PC[x.m % 12]).join('  ');
-    });
+    }, { onLH: lh.show });
     const offOff = midi.onNoteOff((e) => { const n = open.get(e.note); if (n && t0 != null) { n.d = Math.max(0.08, (e.t - t0) / 1000 - n.t); open.delete(e.note); } });
     cleanup = () => { offOn(); offOff(); kb.destroy && kb.destroy(); };
     const nameIn = h('input', { id: 'rel-name', type: 'text', placeholder: 'Ex. : phrase de Wes, mesure 5', autocomplete: 'off' });
     const songSel = h('select', { id: 'rel-song' }, h('option', { value: '' }, 'Aucun'), s.songs.map((x) => h('option', { value: x.id }, x.title)));
     root.replaceChildren(h('button', { class: 'back', type: 'button', onclick: home }, '← Retour'),
-      h('section', { class: 'card stack' }, h('h2', null, 'Joue ta phrase'), status, kb, inputHint(),
+      h('section', { class: 'card stack' }, h('h2', null, 'Joue ta phrase'), status, lh.el, kb, inputHint(),
         h('label', { for: 'rel-name' }, 'Nom'), nameIn, h('label', { for: 'rel-song' }, 'Morceau'), songSel,
         h('div', { class: 'row' },
           h('button', { class: 'btn ghost', type: 'button', onclick: () => record() }, 'Recommencer'),
