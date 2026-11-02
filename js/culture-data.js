@@ -20,6 +20,13 @@ const SRC = {
   wikiAllThings: { label: 'Wikipédia (en) · All the Things You Are', url: 'https://en.wikipedia.org/wiki/All_the_Things_You_Are', type: 'Wikipédia' },
   wikiBlueBossa: { label: 'Wikipédia (en) · Blue Bossa', url: 'https://en.wikipedia.org/wiki/Blue_Bossa', type: 'Wikipédia' },
   britJazz: { label: 'Britannica · Jazz (résumé)', url: 'https://www.Britannica.com/summary/jazz', type: 'encyclopédie' },
+  wikiSilver: { label: 'Wikipédia (en) · Horace Silver', url: 'https://en.wikipedia.org/wiki/Horace_Silver', type: 'Wikipédia' },
+  wikiWes: { label: 'Wikipédia (en) · Wes Montgomery', url: 'https://en.wikipedia.org/wiki/Wes_Montgomery', type: 'Wikipédia' },
+  wikiIncredible: { label: 'Wikipédia (en) · The Incredible Jazz Guitar of Wes Montgomery', url: 'https://en.wikipedia.org/wiki/The_Incredible_Jazz_Guitar_of_Wes_Montgomery', type: 'Wikipédia' },
+  wikiKondo: { label: 'Wikipédia (en) · Koji Kondo', url: 'https://en.wikipedia.org/wiki/Koji_Kondo', type: 'Wikipédia' },
+  wikiUematsu: { label: 'Wikipédia (en) · Nobuo Uematsu', url: 'https://en.wikipedia.org/wiki/Nobuo_Uematsu', type: 'Wikipédia' },
+  wikiShimomura: { label: 'Wikipédia (en) · Yoko Shimomura', url: 'https://en.wikipedia.org/wiki/Yoko_Shimomura', type: 'Wikipédia' },
+  taPartitionJJ: { label: 'Ta partition de Jungle Juice (transcription Malo Vallois)', url: '#partitions', type: 'ta partition' },
 };
 
 export const MUSICIENS = [
@@ -128,6 +135,67 @@ export const MUSICIENS = [
     listen: [{ title: 'Love and Death', year: 2010 }],
     sources: [SRC.faEbo, SRC.rhEbo],
   },
+  {
+    id: 'horace-silver', name: 'Horace Silver', role: 'Pianiste et compositeur américain · 1928–2014',
+    why: 'Compositeur de Jungle Juice, un de tes morceaux du moment.',
+    facts: [
+      'Né le 2 septembre 1928 à Norwalk (Connecticut), mort le 18 juin 2014 à New Rochelle (New York).',
+      'A aidé à créer le hard bop dans les années 1950, en privilégiant la mélodie sur l\u2019harmonie complexe.',
+      'Cofonde les Jazz Messengers avec Art Blakey, puis forme son propre quintette en 1956. Il enregistre pour Blue Note pendant 28 ans.',
+      'Main droite claire et souvent pleine d\u2019humour, main gauche qui gronde dans le grave avec des notes et accords sombres.',
+      'Son père, né au Cap-Vert, lui a transmis la musique populaire de l\u2019île.',
+    ],
+    listen: [{ title: 'Song for My Father', year: 1964 }, { title: 'Serenade to a Soul Sister', year: 1968, note: 'avec Jungle Juice' }],
+    sources: [SRC.wikiSilver],
+  },
+  {
+    id: 'wes-montgomery', name: 'Wes Montgomery', role: 'Guitariste américain · 1923–1968',
+    why: 'Compositeur de Four On Six, un de tes morceaux du moment.',
+    facts: [
+      'Né le 6 mars 1923 à Indianapolis, mort le 15 juin 1968 à Indianapolis, à 45 ans.',
+      'Joue avec le pouce au lieu d\u2019un médiator, et utilise beaucoup les octaves : un son immédiatement reconnaissable.',
+      'Construit souvent ses solos en trois étapes : notes seules, puis octaves, puis accords en bloc.',
+      'Four On Six est enregistré le 26 janvier 1960 pour The Incredible Jazz Guitar of Wes Montgomery (Riverside), avec Tommy Flanagan au piano.',
+    ],
+    listen: [{ title: 'The Incredible Jazz Guitar of Wes Montgomery', year: 1960, note: 'avec Four On Six' }, { title: 'Full House', year: 1962 }],
+    sources: [SRC.wikiWes, SRC.wikiIncredible],
+  },
+  {
+    id: 'koji-kondo', name: 'Koji Kondo', role: 'Compositeur japonais (Nintendo) · né en 1961',
+    why: 'Le compositeur de Mario et de Zelda.',
+    facts: [
+      'Né le 13 août 1961 à Nagoya. Entré chez Nintendo en 1984 comme premier compositeur dédié de l\u2019entreprise.',
+      'Compose la musique de Super Mario Bros. (1985), de The Legend of Zelda (1986) et de Ocarina of Time (1998).',
+      'Organiste dans un groupe de reprises jazz et rock, sans formation classique. Influences citées : Herbie Hancock, Chick Corea, Casiopea, Yes, Emerson, Lake & Palmer, les Beatles.',
+      'La musique de Super Mario Bros. s\u2019appuie surtout sur des genres dansants, comme la musique latine et la valse, et des boucles courtes qui ne lassent pas.',
+    ],
+    listen: [],
+    sources: [SRC.wikiKondo],
+  },
+  {
+    id: 'nobuo-uematsu', name: 'Nobuo Uematsu', role: 'Compositeur japonais · né en 1959',
+    why: 'Le compositeur de Final Fantasy.',
+    facts: [
+      'Né le 21 mars 1959 à Kōchi. Pianiste autodidacte, il commence le piano à 12 ans sans cours.',
+      'Compose la série principale Final Fantasy du premier épisode au IX ; Final Fantasy X (2001) est co-composé avec Masashi Hamauzu et Junya Nakano.',
+      'Sa plus grande influence est Elton John, avec les Beatles, Emerson, Lake & Palmer et le rock progressif ; en classique, Tchaïkovski ; il aime aussi la musique celtique.',
+      'Pièces célèbres : « One-Winged Angel » (FF VII), « Liberi Fatali » (FF VIII), « To Zanarkand » (FF X). Claviériste du groupe de hard rock The Black Mages.',
+    ],
+    listen: [],
+    sources: [SRC.wikiUematsu],
+  },
+  {
+    id: 'yoko-shimomura', name: 'Yoko Shimomura', role: 'Compositrice japonaise · née en 1967',
+    why: 'La compositrice de Kingdom Hearts.',
+    facts: [
+      'Née le 19 octobre 1967 dans la préfecture de Hyōgo. Diplômée en piano de l\u2019Osaka College of Music en 1988.',
+      'Chez Capcom (1988–1993), elle compose presque toute la musique de Street Fighter II ; chez Square (1993–2002), Super Mario RPG (1996) et Parasite Eve (1998).',
+      'Compose toute la série Kingdom Hearts, la série Mario & Luigi à partir de Superstar Saga (2003), et Final Fantasy XV.',
+      'Formation classique ; elle cite Beethoven, Chopin et Ravel, et dit aimer depuis longtemps le jazz « lounge ».',
+    ],
+    listen: [],
+    sources: [SRC.wikiShimomura],
+  },
 ];
 
 export const STANDARDS = [
@@ -184,6 +252,30 @@ export const STANDARDS = [
   },
 ];
 
+export const STANDARDS_PLUS = [
+  {
+    id: 'jungle-juice', name: 'Jungle Juice', role: 'Horace Silver · 1968',
+    why: 'Un de tes morceaux du moment.',
+    facts: [
+      'Composé par Horace Silver, sur l\u2019album Serenade to a Soul Sister (Blue Note, 1968).',
+      'D\u2019après ta partition : forme AABA, A en 5/4 sur un mi mineur (E-11), pont en 6/4 qui monte en accords mineurs (D\u266d-11, E\u266d-11, F-11, G-11).',
+    ],
+    listen: [{ title: 'Serenade to a Soul Sister', year: 1968 }],
+    sources: [SRC.wikiSilver, SRC.taPartitionJJ],
+  },
+  {
+    id: 'four-on-six', name: 'Four On Six', role: 'Wes Montgomery · 1960',
+    why: 'Un de tes morceaux du moment.',
+    facts: [
+      'Composé par Wes Montgomery, enregistré le 26 janvier 1960 pour The Incredible Jazz Guitar of Wes Montgomery.',
+      'D\u2019après ta partition : tempo medium-up autour de 230, thème en sol mineur, grille des solos de 16 mesures.',
+    ],
+    listen: [{ title: 'The Incredible Jazz Guitar of Wes Montgomery', year: 1960 }],
+    sources: [SRC.wikiIncredible],
+  },
+];
+STANDARDS.push(...STANDARDS_PLUS);
+
 export const MOUVEMENTS = [
   { period: 'Fin XIXe – début XXe', name: 'Les origines à La Nouvelle-Orléans', text: 'Le jazz naît d’un mélange des cultures musicales de La Nouvelle-Orléans.', source: SRC.britJazz },
   { period: 'Vers 1930 – 1945', name: 'L’ère du swing', text: 'Les grands orchestres et la danse.', source: SRC.britJazz },
@@ -191,9 +283,11 @@ export const MOUVEMENTS = [
   { period: 'Milieu des années 1940', name: 'Le bebop', text: 'Charlie Parker et la complexité technique du bebop.', source: SRC.britJazz },
   { period: 'Années 1950', name: 'Le cool jazz', text: 'Un style plus détendu, qui prend le nom de cool jazz.', source: SRC.britJazz },
   { period: 'Années 1950 – 1960', name: 'Le highlife ghanéen', text: 'Ebo Taylor y devient une figure majeure avec les grands orchestres de danse.', source: SRC.rhEbo },
+  { period: 'Années 1950', name: 'Le hard bop', text: 'Horace Silver contribue à le créer en passant du bebop à un style qui privilégie la mélodie sur l\u2019harmonie complexe.', source: SRC.wikiSilver },
   { period: '1959', name: 'Le jazz modal', text: 'Kind of Blue de Miles Davis, avec Bill Evans au piano, en devient le chef-d’œuvre.', source: SRC.popWaltz },
   { period: 'Années 1970', name: 'Afrobeat', text: 'Lancé par Fela Kuti ; Ebo Taylor le mêle au highlife, au jazz et au funk à partir du milieu des années 1970.', source: SRC.rhEbo },
   { period: '1970', name: 'Le jazz fusion', text: 'Bitches Brew de Miles Davis contribue à l’essor du jazz fusion.', source: SRC.wikiMiles },
+  { period: '1985 – 1986', name: 'La musique de jeu vidéo', text: 'Koji Kondo compose Super Mario Bros. puis The Legend of Zelda, sur des boucles courtes et dansantes.', source: SRC.wikiKondo },
   { period: '2003', name: 'Jazz, funk et hip-hop', text: 'Hard Groove de The RH Factor réunit jazzmen et artistes neo soul et hip-hop.', source: SRC.wikiHardGroove },
 ];
 
@@ -222,5 +316,18 @@ export const QUIZ = [
   { q: 'Qui a composé Blue Bossa ?', a: 'Kenny Dorham', wrong: ['Joe Henderson', 'Oliver Nelson', 'Miles Davis'], ref: 'blue-bossa' },
   { q: 'Pourquoi Autumn Leaves est-il souvent conseillé pour débuter en jazz ?', a: 'Sa grille est presque entièrement en II-V-I', wrong: ['Il n’a que deux accords', 'Il est en 3/4', 'Il n’a pas de pont'], ref: 'autumn-leaves' },
 ];
+
+QUIZ.push(
+  { q: 'Avec qui Horace Silver a-t-il fondé les Jazz Messengers ?', a: 'Art Blakey', wrong: ['Miles Davis', 'Wes Montgomery', 'John Coltrane'], ref: 'horace-silver' },
+  { q: 'Sur quel album d\u2019Horace Silver trouve-t-on Jungle Juice ?', a: 'Serenade to a Soul Sister', wrong: ['Song for My Father', 'The Cape Verdean Blues', 'Page One'], ref: 'jungle-juice' },
+  { q: 'Avec quoi Wes Montgomery jouait-il les cordes ?', a: 'Le pouce', wrong: ['Un médiator', 'Les ongles', 'Un archet'], ref: 'wes-montgomery' },
+  { q: 'Sur quel album Four On Six a-t-il été enregistré en 1960 ?', a: 'The Incredible Jazz Guitar of Wes Montgomery', wrong: ['Full House', 'Movin\u2019 Wes', 'Kind of Blue'], ref: 'four-on-six' },
+  { q: 'Qui a composé la musique de Super Mario Bros. et de The Legend of Zelda ?', a: 'Koji Kondo', wrong: ['Nobuo Uematsu', 'Yoko Shimomura', 'Joe Hisaishi'], ref: 'koji-kondo' },
+  { q: 'Quel pianiste de jazz Koji Kondo cite-t-il parmi ses influences ?', a: 'Herbie Hancock', wrong: ['Bill Evans', 'Thelonious Monk', 'Red Garland'], ref: 'koji-kondo' },
+  { q: 'Qui est la plus grande influence de Nobuo Uematsu ?', a: 'Elton John', wrong: ['Les Beatles', 'Tchaïkovski', 'Queen'], ref: 'nobuo-uematsu' },
+  { q: 'Avec qui Uematsu a-t-il co-composé Final Fantasy X ?', a: 'Masashi Hamauzu et Junya Nakano', wrong: ['Yoko Shimomura', 'Koji Kondo', 'Personne : seul'], ref: 'nobuo-uematsu' },
+  { q: 'Quelle série Yoko Shimomura compose-t-elle depuis le début ?', a: 'Kingdom Hearts', wrong: ['The Legend of Zelda', 'Final Fantasy', 'Super Mario Bros.'], ref: 'yoko-shimomura' },
+  { q: 'Pour quel jeu de combat Yoko Shimomura a-t-elle composé presque toute la musique ?', a: 'Street Fighter II', wrong: ['Tekken', 'Mortal Kombat', 'Soulcalibur'], ref: 'yoko-shimomura' },
+);
 
 export const ALL_FICHES = [...MUSICIENS.map((f) => ({ ...f, cat: 'Musicien' })), ...STANDARDS.map((f) => ({ ...f, cat: 'Standard' }))];

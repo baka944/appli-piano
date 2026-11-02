@@ -7,6 +7,7 @@ import {
   INTERVALS, intervalById, CHORDS, chordSemis, PROGRESSIONS, PROG_LEVELS, progById, realize, KEYS, nameFr, voice,
 } from './music.js';
 import { makeQuestion, THEMES } from './theorie.js';
+import { MOTIF_LEVELS, motifs } from './v3.js';
 
 const SESSION = 10;
 const DIRS = { asc: 'Montants', desc: 'Descendants', harm: 'Harmoniques (ensemble)' };
@@ -33,7 +34,7 @@ export const THEORY_LEVELS = [
   { n: 5, name: 'Toutes les tonalités' },
 ];
 
-const MODES = [['intervalles', 'Intervalles'], ['accords', 'Accords'], ['progressions', 'Progressions'], ['theorie', 'Théorie']];
+const MODES = [['intervalles', 'Intervalles'], ['accords', 'Accords'], ['progressions', 'Progressions'], ['motifs', 'Motifs'], ['theorie', 'Théorie']];
 
 export function render(el, app, params = {}) {
   const s = store.get();
@@ -76,6 +77,14 @@ export function render(el, app, params = {}) {
     } else if (mode === 'accords') {
       root.append(h('p', { class: 'muted' }, 'Tu entends un accord : trouve sa couleur.'),
         levelCards(CHORD_LEVELS, (L) => L.ids.map((id) => CHORDS[id].fr).join(', '), (L) => earQuiz(L)));
+    } else if (mode === 'motifs') {
+      root.append(h('p', { class: 'muted' }, 'Dictée de motifs inconnus : l\u2019appli joue une courte phrase, tu la rejoues au piano ou sur le clavier à l\u2019écran.'),
+        levelCards(MOTIF_LEVELS, (L) => L.desc, (L) => {
+          stopMidi();
+          const stage = h('section', { class: 'card stack' });
+          root.replaceChildren(header(), h('button', { class: 'back', type: 'button', onclick: home }, '← Niveaux'), stage);
+          cleanupMidi = motifs(stage, app, L, home);
+        }));
     } else if (mode === 'progressions') {
       root.append(h('p', { class: 'muted' }, 'Tu entends une suite d’accords dans une tonalité au hasard : reconnais la progression.'),
         levelCards(PROG_LEVELS, (L) => L.ids.map((id) => progById[id].name).join(' · '), (L) => progQuiz(L)),

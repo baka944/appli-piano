@@ -7,17 +7,17 @@ export const DAILY_CAP = 300;
 export const QUEST_REWARD = 100;
 
 export const TEMPOS = ['Largo', 'Larghetto', 'Adagio', 'Andante', 'Andantino', 'Moderato', 'Allegretto', 'Allegro', 'Vivace', 'Presto', 'Prestissimo'];
-export const SKILLS = { rythme: 'Rythme', oreille: 'Oreille', theorie: 'Théorie', harmonie: 'Harmonie', morceaux: 'Morceaux', culture: 'Culture' };
+export const SKILLS = { rythme: 'Rythme', harmonie: 'Harmonie', licks: 'Licks', impro: 'Impro', oreille: 'Oreille', theorie: 'Théorie', morceaux: 'Morceaux', culture: 'Culture' };
 
 // Un niveau par onglet, de 1 à 100. 100 = niveau d'un professionnel : la courbe est volontairement lente.
 export const MAX_LEVEL = 100;
 export const DOMAINS = {
   morceaux: { label: 'Morceaux', skills: ['morceaux'], tab: 'morceaux' },
-  travail: { label: 'Travail', skills: ['rythme', 'harmonie'], tab: 'travail' },
+  travail: { label: 'Travail', skills: ['rythme', 'harmonie', 'licks', 'impro'], tab: 'travail' },
   oreille: { label: 'Oreille', skills: ['oreille', 'theorie'], tab: 'oreille' },
   culture: { label: 'Culture', skills: ['culture'], tab: 'culture' },
 };
-export const SKILL_DOMAIN = { morceaux: 'morceaux', rythme: 'travail', harmonie: 'travail', oreille: 'oreille', theorie: 'oreille', culture: 'culture' };
+export const SKILL_DOMAIN = { morceaux: 'morceaux', rythme: 'travail', harmonie: 'travail', licks: 'travail', impro: 'travail', oreille: 'oreille', theorie: 'oreille', culture: 'culture' };
 // XP cumulée pour atteindre le niveau L : 30·(L−1)² + 70·(L−1)
 // niv. 2 = 100 XP · niv. 10 ≈ 3 100 · niv. 30 ≈ 27 300 · niv. 50 ≈ 75 500 · niv. 100 ≈ 301 000
 export function xpForLevel(L) { return 30 * (L - 1) ** 2 + 70 * (L - 1); }
@@ -75,6 +75,7 @@ function normalize(parsed) {
   s.songs = (s.songs || []).map((song) => ({ grid: '', meter: 4, tempo: 100, link: '', modules: defaultModules(), ...song }));
   s.customPatterns = s.customPatterns || [];
   s.listening = s.listening || [];
+  s.releves = s.releves || [];
   return s;
 }
 

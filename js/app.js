@@ -7,6 +7,7 @@ import * as morceaux from './morceaux.js';
 import * as culture from './culture.js';
 import * as travail2 from './travail2.js';
 import * as partitions from './partitions.js';
+import * as v3 from './v3.js';
 import { PILIERS, conseilDuJour } from './conseils.js';
 
 const TABS = [
@@ -218,23 +219,22 @@ function today(el) {
 }
 
 // ---------- Travail ----------
-const WORK_TABS = [['rythme', 'Rythme'], ['gammes', 'Gammes'], ['harmonisation', 'Harmonisation'], ['suites', 'Suites d’accords']];
+const WORK_TABS = [['rythme', 'Rythme'], ['licks', 'Licks'], ['impro', 'Impro'], ['voicings', 'Voicings'], ['gammes', 'Gammes'], ['harmonisation', 'Harmonisation'], ['suites', 'Suites d’accords']];
 function work(el, params) {
   let sub = params.sub || 'rythme';
   let stop = null;
   const box = h('div', { class: 'stack' });
   const seg = h('div', { class: 'seg scroll', role: 'tablist' });
-  el.append(seg, box,
-    h('section', { class: 'stack soon' },
-      h('h2', { class: 'hand-title' }, 'Bientôt dans Travail'),
-      h('div', { class: 'grid2' }, [['Voicings et fioritures', 'V3'], ['Licks et relevés', 'V3'], ['Impro guidée', 'V3'], ['Dictée mélodique', 'V3']]
-        .map(([t, v]) => h('div', { class: 'card locked' }, icon('lock', 'ic sm'), h('strong', null, t), h('span', { class: 'muted small' }, v))))));
+  el.append(seg, box);
   function show(p = {}) {
     if (stop) { try { stop(); } catch (e) { /* rien */ } }
     seg.replaceChildren(...WORK_TABS.map(([id, label]) => h('button', { type: 'button', role: 'tab', 'aria-selected': sub === id ? 'true' : 'false', class: sub === id ? 'on' : '', onclick: () => { sub = id; show(); } }, label)));
     box.replaceChildren();
     const back = () => h('button', { class: 'back', type: 'button', onclick: () => show() }, '← Retour');
     if (sub === 'rythme') stop = rythme.render(box, app, p);
+    else if (sub === 'licks') stop = v3.licks(box, app);
+    else if (sub === 'impro') stop = v3.impro(box, app);
+    else if (sub === 'voicings') stop = v3.voicings(box, app);
     else if (sub === 'gammes') stop = travail2.gammes(box, app, back);
     else if (sub === 'harmonisation') stop = travail2.harmonisation(box, app, back);
     else stop = travail2.suites(box, app, back);
@@ -265,7 +265,7 @@ function journal(el) {
     h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { delBox.hidden = true; } }, 'Annuler'));
 
   // temps par onglet, pour voir l'équilibre du travail
-  const groups = { Morceaux: ['morceau', 'playalong'], Travail: ['rythme', 'gammes', 'harmonisation', 'suites'], Oreille: ['oreille', 'theorie'], Culture: ['culture', 'ecoute'] };
+  const groups = { Morceaux: ['morceau', 'playalong'], Travail: ['rythme', 'gammes', 'harmonisation', 'suites', 'licks', 'voicings', 'impro'], Oreille: ['oreille', 'theorie'], Culture: ['culture', 'ecoute'] };
   const week = store.historyWeek();
   const xpBy = Object.fromEntries(Object.entries(groups).map(([k, acts]) => [k, week.filter((x) => acts.includes(x.activity)).reduce((t, x) => t + x.xp, 0)]));
   const maxXp = Math.max(1, ...Object.values(xpBy));

@@ -318,3 +318,5 @@ details.card[open] { display: flex; flex-direction: column; gap: 10px; }
 .flash .face { font-size: 19px; font-weight: 700; max-width: 40ch; }
 .flash .back-face { font-family: var(--hand); font-size: 22px; color: var(--accent); }
 @media (max-width: 420px) { .top-status { gap: 6px; } .midi-chip span, .save-chip span { display: none; } .lvls { width: 120px; } }
+.big-notes { font-size: 22px; font-weight: 700; letter-spacing: .02em; }
+.consigne { font-family: var(--hand); font-size: 26px; font-weight: 700; color: var(--accent); max-width: 30ch; line-height: 1.2; }
