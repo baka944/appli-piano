@@ -97,7 +97,38 @@ export function load() {
   if (!players.list.some((p) => p.id === players.current)) players.current = players.list[0].id;
   const data = readJson(dataKey(players.current));
   state = data ? normalize(data) : fresh(false);
+  applySeeds();
   return state;
+}
+
+// Morceaux ajoutés à la demande de Christopher (joueur p1), une seule fois.
+const SEEDS = [
+  {
+    id: '2026-11-02', player: 'p1',
+    songs: [
+      {
+        id: 'jungle-juice', title: 'Jungle Juice', artist: 'Horace Silver', jam: false, meter: 5, tempo: 120, link: '',
+        notes: 'Grille tirée de ta partition (transcription Malo Vallois) : AABA, A en 5/4 sur 10 mesures, B en 6/4 sur 8 mesures. Tempo à ajuster à l\u2019enregistrement.',
+        grid: '[5/4] | E-11 | % | % | % | % | % | C7 | % | E-11 | % |\n[5/4] | E-11 | % | % | % | % | % | C7 | % | E-11 | % |\n[6/4] | A-9 | % | E-11 | % | Db-11 | Eb-11 | F-11 | G-11 |\n[5/4] | E-11 | % | % | % | % | % | C7 | % | E-11 | % |',
+      },
+      {
+        id: 'four-on-six', title: 'Four On Six', artist: 'Wes Montgomery', jam: false, meter: 4, tempo: 230, link: '',
+        notes: 'Grille des solos (lettre B, 16 mesures) d\u2019après ta partition, tempo indiqué 230. Thème (lettre A) : Gm7 C7 sur 3 mesures, Gm7, puis en stop time Cm9 F7 | B\u266dm9 E\u266d7 | Am9 D7 | E\u266dm9 A\u266d9.',
+        grid: '| Gm7 | % | % | % | Cm7 F7 | Bbm7 Eb7 |\n| Am7 D7 | Ebm7 Ab7 | Gm7 | % | % | Cm7 F7 |\n| Bbmaj7 Gm7 | Eb7 D7 | Gm7 | A7#5 D7 |',
+      },
+    ],
+  },
+];
+function applySeeds() {
+  state.seeds = state.seeds || [];
+  let changed = false;
+  SEEDS.forEach((sd) => {
+    if (players.current !== sd.player || state.seeds.includes(sd.id)) return;
+    sd.songs.forEach((song) => { if (!state.songs.some((x) => x.id === song.id)) state.songs.push({ ...song, modules: defaultModules() }); });
+    state.seeds.push(sd.id);
+    changed = true;
+  });
+  if (changed) writeJson(dataKey(players.current), state);
 }
 export function save() {
   writeJson(dataKey(players.current), state);

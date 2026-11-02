@@ -8,6 +8,7 @@ function durations(k, meter) {
   if (k === 1) return [meter];
   if (k === 2) return meter === 3 ? [2, 1] : [meter / 2, meter / 2];
   if (k === 3 && meter === 4) return [2, 1, 1];
+  if (k === 2 && meter % 2) return [Math.ceil(meter / 2), Math.floor(meter / 2)];
   return Array(k).fill(meter / k);
 }
 
@@ -27,7 +28,7 @@ export function barEvents(bar, meter, compPattern, swing, opts) {
   const segs = bar.chords.map((c, i) => { const s = { c, start: t, end: t + durs[i] }; t += durs[i]; return s; });
   if (opts.bass) segs.forEach((sg) => {
     ev.push({ t: sg.start, kind: 'bass', note: bassNote(sg.c.bass), dur: Math.min(sg.end - sg.start, 2) });
-    if (sg.end - sg.start >= 2 && meter === 4) ev.push({ t: sg.start + 2, kind: 'bass', note: bassNote((sg.c.root + 7) % 12), dur: sg.end - sg.start - 2 });
+    if (sg.end - sg.start >= 2 && meter >= 4) ev.push({ t: sg.start + 2, kind: 'bass', note: bassNote((sg.c.root + 7) % 12), dur: sg.end - sg.start - 2 });
   });
   if (opts.comp) {
     compPattern.filter((p) => p < meter * 2).forEach((p) => {
@@ -41,7 +42,8 @@ export function barEvents(bar, meter, compPattern, swing, opts) {
   }
   if (opts.click !== 'aucun') {
     for (let b = 0; b < meter; b++) {
-      if (opts.click === 'tous' || (opts.click === '2-4' && meter === 4 && b % 2 === 1) || (opts.click === '2-4' && meter === 3 && b > 0)) ev.push({ t: b, kind: 'click', accent: b === 0 });
+      const offbeat = meter === 3 ? b > 0 : b % 2 === 1;
+      if (opts.click === 'tous' || (opts.click === '2-4' && offbeat)) ev.push({ t: b, kind: 'click', accent: b === 0 });
     }
   }
   return ev;
@@ -50,20 +52,23 @@ export function barEvents(bar, meter, compPattern, swing, opts) {
 export function start({ bars, meter = 4, bpm = 100, swing = true, compPattern = [1, 3], opts, loops = 2, onBar, onEnd, record = false, takeToReplay = null }) {
   const c = audio.getCtx();
   const beat = 60 / bpm;
-  const barDur = meter * beat;
+  const m0 = bars[0].meter || meter;
   const t0 = c.currentTime + 0.3;
-  const countIn = barDur;
-  const songStart = t0 + countIn;
+  const songStart = t0 + m0 * beat;
   const total = bars.length * loops;
-  const end = songStart + total * barDur;
+  // début de chaque mesure (les mesures peuvent avoir des longueurs différentes : 5/4, 6/4…)
+  const starts = [];
+  let acc = songStart;
+  for (let k = 0; k <= total; k++) { starts.push(acc); acc += (bars[k % bars.length].meter || meter) * beat; }
+  const end = starts[total];
   let nextBar = 0;
   let stopped = false;
-  for (let i = 0; i < meter; i++) audio.click(t0 + i * beat, i === 0 ? 'accent' : 'count');
+  for (let i = 0; i < m0; i++) audio.click(t0 + i * beat, i === 0 ? 'accent' : 'count');
 
   const scheduleBar = (k) => {
     const bar = bars[k % bars.length];
-    const at = songStart + k * barDur;
-    barEvents(bar, meter, compPattern, swing, opts).forEach((e) => {
+    const at = starts[k];
+    barEvents(bar, bar.meter || meter, compPattern, swing, opts).forEach((e) => {
       const when = at + e.t * beat;
       if (e.kind === 'bass') audio.tone(e.note, when, Math.max(0.3, e.dur * beat * 0.95), 0.9);
       else if (e.kind === 'comp') audio.chord(e.notes, when, Math.max(0.25, e.dur * beat), 0.55);
@@ -74,7 +79,7 @@ export function start({ bars, meter = 4, bpm = 100, swing = true, compPattern = 
 
   const timer = setInterval(() => {
     if (stopped) return;
-    while (nextBar < total && songStart + nextBar * barDur < c.currentTime + 0.6) { scheduleBar(nextBar); nextBar++; }
+    while (nextBar < total && starts[nextBar] < c.currentTime + 0.6) { scheduleBar(nextBar); nextBar++; }
   }, 50);
 
   // enregistrement
@@ -101,7 +106,8 @@ export function start({ bars, meter = 4, bpm = 100, swing = true, compPattern = 
   const tick = () => {
     if (stopped) return;
     const now = c.currentTime;
-    const k = now < songStart ? -1 : Math.floor((now - songStart) / barDur);
+    let k = -1;
+    if (now >= songStart) { k = 0; while (k < total - 1 && starts[k + 1] <= now) k++; }
     if (k !== lastBar) { lastBar = k; onBar && onBar(k < 0 ? -1 : k % bars.length, k, now < songStart ? Math.ceil((songStart - now) / beat) : null); }
     if (now >= end + 0.2) { finish(); return; }
     raf = requestAnimationFrame(tick);

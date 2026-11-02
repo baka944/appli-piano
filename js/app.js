@@ -6,6 +6,7 @@ import * as oreille from './oreille.js';
 import * as morceaux from './morceaux.js';
 import * as culture from './culture.js';
 import * as travail2 from './travail2.js';
+import * as partitions from './partitions.js';
 import { PILIERS, conseilDuJour } from './conseils.js';
 
 const TABS = [
@@ -13,6 +14,7 @@ const TABS = [
   { id: 'morceaux', label: 'Morceaux', icon: 'songs' },
   { id: 'travail', label: 'Travail', icon: 'work' },
   { id: 'oreille', label: 'Oreille', icon: 'ear' },
+  { id: 'partitions', label: 'Partitions', icon: 'score' },
   { id: 'culture', label: 'Culture', icon: 'culture' },
   { id: 'journal', label: 'Journal', icon: 'journal' },
 ];
@@ -50,8 +52,39 @@ function renderTop() {
           h('span', { class: 'lvl-mini-top' }, h('span', null, d.label.slice(0, 1)), h('strong', { class: 'num' }, l.level)),
           progressBar(l.pct, d.label));
       })),
+    saveButton(),
     h('button', { type: 'button', class: `midi-chip st-${ms.status}`, onclick: () => midi.connect(), title: ms.inputs.join(', ') || null },
       icon('piano', 'ic sm'), h('span', null, midi.statusLabel(ms))));
+}
+
+// ---------- Sauvegarde rapide ----------
+function unsaved() {
+  const s = store.get();
+  const last = s.settings.lastSave || '';
+  return s.history.length && s.history[0].t > last;
+}
+function saveButton() {
+  const dirty = unsaved();
+  return h('button', { type: 'button', class: `save-chip${dirty ? ' dirty' : ''}`, onclick: quickSave, title: dirty ? 'Des progrès ne sont pas encore sauvegardés' : 'Tout est sauvegardé', 'aria-label': 'Sauvegarder ma progression' },
+    icon('save', 'ic sm'), h('span', null, dirty ? 'Sauver' : 'Sauvé'));
+}
+async function quickSave() {
+  const name = store.currentPlayer().name;
+  const fileName = `appli-piano-${name}-${store.today()}.json`;
+  const text = store.exportJson();
+  const file = new File([text], fileName, { type: 'application/json' });
+  const done = () => { store.setSetting('lastSave', new Date().toISOString()); toast('Progression sauvegardée.'); renderTop(); };
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'Sauvegarde appli piano', text: `Sauvegarde de ${name} du ${store.today()}` });
+      return done();
+    }
+  } catch (e) {
+    if (e && e.name === 'AbortError') return;
+  }
+  const a = h('a', { href: URL.createObjectURL(file), download: fileName });
+  document.body.append(a); a.click(); a.remove();
+  done();
 }
 
 function renderNav() {
@@ -79,6 +112,7 @@ function route() {
     travail: work,
     oreille: (el, p) => oreille.render(el, app, p),
     culture: (el, p) => culture.render(el, app, p),
+    partitions: (el, p) => partitions.render(el, app, p),
     journal,
   };
   const dom = Object.entries(store.DOMAINS).find(([, d]) => d.tab === tab);

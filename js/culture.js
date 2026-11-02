@@ -1,9 +1,10 @@
 // Onglet Culture : fiches sourcées, frise, quiz éclair, liste d'écoute.
-import { h, shuffle, toast } from './ui.js';
+import { h, shuffle, toast, weightedPick } from './ui.js';
+import { parseGrid } from './music.js';
 import * as store from './store.js';
 import { MUSICIENS, STANDARDS, MOUVEMENTS, QUIZ, ALL_FICHES } from './culture-data.js';
 
-const TABS = [['jour', 'Carte du jour'], ['musiciens', 'Musiciens'], ['standards', 'Standards'], ['frise', 'Frise'], ['quiz', 'Quiz éclair'], ['liste', 'Ma liste']];
+const TABS = [['jour', 'Carte du jour'], ['musiciens', 'Musiciens'], ['standards', 'Standards'], ['frise', 'Frise'], ['cartes', 'Cartes'], ['quiz', 'Quiz éclair'], ['liste', 'Ma liste']];
 
 function dayIndex(n) { const d = new Date(); return (d.getFullYear() * 400 + d.getMonth() * 31 + d.getDate()) % n; }
 
@@ -57,8 +58,62 @@ export function render(el, app, params = {}) {
         h('span', { class: 'hand period' }, m.period), h('strong', null, m.name), h('p', null, m.text),
         h('a', { class: 'small', href: m.source.url, target: '_blank', rel: 'noopener' }, m.source.label)))),
       h('p', { class: 'muted small' }, 'Le hard bop et le free jazz arriveront quand j’aurai des sources fiables pour leurs dates.'));
-    } else if (tab === 'quiz') quiz();
+    } else if (tab === 'cartes') cartes();
+    else if (tab === 'quiz') quiz();
     else liste();
+  }
+
+  // Cartes à retourner : faits des fiches + tes propres morceaux (artistes, grilles, mesures).
+  function buildCards() {
+    const cards = QUIZ.map((q, i) => ({ id: `q${i}`, front: q.q, back: q.a, from: 'Fiches Culture' }));
+    s.songs.forEach((song) => {
+      if (song.artist && !/^Références/.test(song.artist)) cards.push({ id: `art:${song.id}`, front: `« ${song.title} » : de qui ?`, back: song.artist, from: 'Tes morceaux' });
+      const { bars } = parseGrid(song.grid);
+      for (let i = 0; i < bars.length; i += 4) {
+        const chunk = bars.slice(i, i + 4);
+        if (chunk.length < 2) break;
+        cards.push({ id: `grid:${song.id}:${i}`, front: `« ${song.title} » : mesures ${i + 1} à ${i + chunk.length} ?`, back: chunk.map((b) => b.chords.map((c) => c.name).join(' ')).join(' | '), from: 'Ta grille' });
+      }
+      const meters = [...new Set(bars.map((b) => b.meter || song.meter))];
+      if (meters.some((m) => m !== 4)) cards.push({ id: `meter:${song.id}`, front: `« ${song.title} » : dans quelle mesure se joue-t-il ?`, back: meters.map((m) => `${m}/4`).join(' puis '), from: 'Ta grille' });
+    });
+    return cards;
+  }
+  function cartes() {
+    const all = buildCards();
+    const deck = [];
+    const pool = all.slice();
+    while (deck.length < Math.min(10, all.length)) {
+      const c = weightedPick(pool, (x) => store.itemWeight(`carte:${x.id}`));
+      deck.push(c);
+      pool.splice(pool.indexOf(c), 1);
+    }
+    let i = 0;
+    let known = 0;
+    const stage = h('section', { class: 'stack' });
+    root.append(h('p', { class: 'muted small' }, `${all.length} cartes : les faits des fiches et tes morceaux (artistes, grilles, mesures). Celles que tu rates reviennent plus souvent.`), stage);
+    const show = () => {
+      if (i >= deck.length) {
+        const out = store.award('culture', known + (known === deck.length ? 2 : 0), { activity: 'culture', label: 'Cartes', score: Math.round((known / deck.length) * 100), correct: known, total: deck.length });
+        app.celebrate(out);
+        stage.replaceChildren(h('section', { class: 'card stack center' }, h('div', { class: 'score' }, `${known} / ${deck.length}`), h('div', { class: 'xp-gain' }, `+${out.gained} XP`),
+          h('button', { class: 'btn', type: 'button', onclick: () => draw() }, 'Nouvelle série')));
+        return;
+      }
+      const c = deck[i];
+      let flipped = false;
+      const answer = h('div', { class: 'row center', hidden: true },
+        h('button', { class: 'btn ghost', type: 'button', onclick: () => { store.recordItem(`carte:${c.id}`, false); store.save(); i++; show(); } }, 'À revoir'),
+        h('button', { class: 'btn', type: 'button', onclick: () => { known++; store.recordItem(`carte:${c.id}`, true); store.save(); i++; show(); } }, 'Je savais'));
+      const card = h('button', { type: 'button', class: 'card flash', 'aria-label': 'Retourner la carte', onclick: () => {
+        if (flipped) return;
+        flipped = true;
+        card.append(h('div', { class: 'back-face' }, c.back));
+        answer.hidden = false;
+      } }, h('span', { class: 'muted small' }, `${i + 1} / ${deck.length} · ${c.from}`), h('div', { class: 'face' }, c.front), h('span', { class: 'muted small' }, 'Touche pour voir la réponse'));
+      stage.replaceChildren(card, answer);
+    };
+    show();
   }
 
   function quiz() {

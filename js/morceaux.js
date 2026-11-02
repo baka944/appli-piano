@@ -6,6 +6,8 @@ import * as midi from './midi.js';
 import { parseGrid } from './music.js';
 import { allPatterns } from './rythme.js';
 import * as playalong from './playalong.js';
+import * as scores from './scores.js';
+import { scoreViewer, uploadButton } from './partitions.js';
 
 const MODULE_TEMPLATES = [
   { kind: 'theme', name: 'Thème', hint: 'Jouer la mélodie, puis la chanter.' },
@@ -76,6 +78,20 @@ export function render(el, app, params = {}) {
     const gridBox = h('div');
     const playBox = h('section', { class: 'card stack' });
     const modBox = h('section', { class: 'stack' });
+    const scoreBox = h('section', { class: 'card stack' });
+    async function drawScores() {
+      const player = store.currentPlayer().id;
+      const mine = (await scores.list(player)).filter((x) => x.songId === song.id);
+      scoreBox.replaceChildren(
+        h('div', { class: 'card-head' }, h('h2', { class: 'hand-title' }, 'Partition'),
+          uploadButton(mine.length ? 'Ajouter' : 'Ajouter la partition', async (f) => { await scores.add(player, f, song.id); toast('Partition reliée au morceau.'); drawScores(); })),
+        mine.length ? h('div', { class: 'row wrap' }, mine.map((it) => h('button', { class: 'btn ghost sm', type: 'button', onclick: async () => {
+          stopSession();
+          const rec = await scores.get(it.id);
+          window.scrollTo(0, 0);
+          root.replaceChildren(scoreViewer(rec, () => detail(song.id)));
+        } }, icon('songs', 'ic sm'), it.name))) : h('p', { class: 'muted small' }, 'Pas encore de partition pour ce morceau. Ajoute le PDF ici ou dans l\u2019onglet Partitions.'));
+    }
     let editing = !song.grid;
     let lastTake = null;
 
@@ -87,7 +103,7 @@ export function render(el, app, params = {}) {
             h('span', { class: 'muted small' }, `${song.meter}/4`),
             h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { editing = !editing; drawGrid(); } }, editing ? 'Fermer' : 'Modifier'))),
         bars.length ? h('div', { class: `grid-view meter-${song.meter}` }, bars.map((b, i) => h('div', { class: `bar-cell${i === active ? ' now' : ''}`, 'data-bar': i },
-          h('span', { class: 'bar-num' }, i + 1), h('span', { class: 'hand chords' }, b.repeat ? '%' : b.chords.map((c) => c.name).join('  ')))))
+          h('span', { class: 'bar-num' }, i + 1, b.meter && (i === 0 || bars[i - 1].meter !== b.meter) ? ` · ${b.meter}/4` : ''), h('span', { class: 'hand chords' }, b.repeat ? '%' : b.chords.map((c) => c.name).join('  ')))))
           : h('p', { class: 'muted' }, 'Pas encore de grille. Recopie-la depuis ta partition ou ton Real Book.'),
         unknown.length ? h('p', { class: 'bad small' }, `Accords non reconnus (joués comme des accords simples) : ${unknown.join(', ')}`) : null,
         editing ? gridEditor() : null));
@@ -98,7 +114,7 @@ export function render(el, app, params = {}) {
         h('textarea', { id: 'grid-text', rows: 5, class: 'mono', placeholder: '| Dm7 | G7 | Cmaj7 | % |\n| Fm7 Bb7 | Ebmaj7 | Am7b5 D7 | Gm7 |' }, song.grid),
         h('div', { class: 'row wrap' },
           h('label', { for: 'meter' }, 'Mesure'),
-          h('select', { id: 'meter', style: { width: 'auto' } }, [4, 3].map((m) => h('option', { value: m, selected: song.meter === m }, `${m}/4`))),
+          h('select', { id: 'meter', style: { width: 'auto' } }, [4, 3, 5, 6].map((m) => h('option', { value: m, selected: song.meter === m }, `${m}/4`))),
           h('span', { class: 'spacer' }),
           h('button', { class: 'btn sm', type: 'button', onclick: () => {
             song.grid = document.getElementById('grid-text').value.trim();
@@ -108,7 +124,7 @@ export function render(el, app, params = {}) {
             drawGrid();
             drawPlay();
           } }, 'Enregistrer la grille')),
-        h('p', { class: 'muted small' }, 'Exemples d’accords reconnus : C, Cm, C7, Cmaj7, Cm7, Cm7b5, C°7, C6, C9, C7b9, Csus4, C/E, Bb, F#.'));
+        h('p', { class: 'muted small' }, 'Exemples d’accords reconnus : C, Cm, C-7, Cmi7, C7, Cmaj7, CMA7, Cm7b5, C°7, C6, C9, C7(#11b9), Csus4, C/E, Bb, F#. Pour changer de mesure en cours de grille, commence la ligne par [5/4] ou [6/4].'));
     }
 
     function drawPlay() {
@@ -240,7 +256,7 @@ export function render(el, app, params = {}) {
       h('div', { class: 'page-head' },
         h('h1', { class: 'display' }, song.title),
         h('p', { class: 'lead' }, song.artist, song.jam ? ' · morceau de la jam' : '')),
-      gridBox, playBox, modBox,
+      gridBox, scoreBox, playBox, modBox,
       h('section', { class: 'card stack' },
         h('h2', null, 'Infos du morceau'),
         h('label', { for: 'song-notes', class: 'small muted' }, 'Où j’en suis'),
@@ -253,6 +269,7 @@ export function render(el, app, params = {}) {
         h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { confirmDel.hidden = false; } }, 'Supprimer le morceau'),
         confirmDel));
     drawGrid();
+    drawScores();
     drawPlay();
     drawModules();
   }

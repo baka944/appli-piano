@@ -133,6 +133,9 @@ const QUALITY = [
   [/^(\+|aug)$/, [0, 4, 8], 'aug'],
   [/^(sus4?|sus2)$/, [0, 5, 7], 'sus4'],
   [/^(7sus4?|9sus4?|sus7)$/, [0, 5, 7, 10], 'sus4'],
+  [/^(m\d+)$/, [0, 3, 7, 10], 'm7'],
+  [/^(7|9|11|13).+$/, [0, 4, 7, 10], 'dom7'],
+  [/^(maj\d+.*)$/, [0, 4, 7, 11], 'maj7'],
   [/^$/, [0, 4, 7], 'maj'],
 ];
 const ACC_IN = { '#': 1, '♯': 1, b: -1, '♭': -1 };
@@ -143,7 +146,8 @@ export function parseChord(raw) {
   const m = s.match(/^([A-G])([#♯b♭]?)([^/]*)(?:\/([A-G])([#♯b♭]?))?$/);
   if (!m) return null;
   const root = (NAT[LETTERS.indexOf(m[1])] + (ACC_IN[m[2]] || 0) + 12) % 12;
-  const suf = m[3].replace(/[()]/g, (c) => (m[3].includes('maj7)') ? c : ''));
+  // notations Real Book : « mi7 », « MA7 », extensions entre parenthèses « 7(#11b9) »
+  const suf = m[3].replace(/[()]/g, '').replace(/^mi(?!n)/, 'm').replace(/^(MA|Ma|ma)(?=\d|$)/, 'maj');
   let semis = null;
   let family = 'maj';
   for (const [re, iv, fam] of QUALITY) if (re.test(suf)) { semis = iv; family = fam; break; }
@@ -164,15 +168,19 @@ export function parseGrid(text) {
   const lines = String(text || '').split(/\n+/).map((l) => l.trim()).filter(Boolean);
   const bars = [];
   const unknown = new Set();
+  let meter = null;
   lines.forEach((line, li) => {
+    // « [5/4] » en début de ligne change la mesure pour la suite de la grille
+    const mm = line.match(/^\[(\d+)\/4\]\s*/);
+    if (mm) { meter = +mm[1]; line = line.slice(mm[0].length); }
     line.split('|').map((b) => b.trim()).filter((b) => b.length).forEach((b) => {
-      if (b === '%' && bars.length) { bars.push({ chords: bars[bars.length - 1].chords, line: li, repeat: true }); return; }
+      if (b === '%' && bars.length) { bars.push({ chords: bars[bars.length - 1].chords, line: li, repeat: true, meter }); return; }
       const chords = b.split(/\s+/).map((t) => {
         const c = parseChord(t);
         if (!c || !c.ok) unknown.add(t);
         return c;
       }).filter(Boolean);
-      if (chords.length) bars.push({ chords, line: li });
+      if (chords.length) bars.push({ chords, line: li, meter });
     });
   });
   return { bars, unknown: [...unknown] };
