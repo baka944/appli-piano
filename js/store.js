@@ -131,7 +131,14 @@ function applySeeds() {
   });
   if (changed) writeJson(dataKey(players.current), state);
 }
-export function save() {
+export function save(touch = true) {
+  if (touch) state.updatedAt = new Date().toISOString();
+  writeJson(dataKey(players.current), state);
+  listeners.forEach((f) => f(state));
+}
+// Remplace la partie locale par celle venue d'un autre appareil (synchro).
+export function replace(data) {
+  state = normalize(data);
   writeJson(dataKey(players.current), state);
   listeners.forEach((f) => f(state));
 }
@@ -142,7 +149,7 @@ export function setSetting(k, v) { state.settings[k] = v; save(); }
 // ---------- Joueurs ----------
 export function playerList() { return players.list.slice(); }
 export function currentPlayer() { return players.list.find((p) => p.id === players.current) || players.list[0]; }
-export function switchPlayer(id) { players.current = id; writeJson(PLAYERS_KEY, players); load(); save(); }
+export function switchPlayer(id) { players.current = id; writeJson(PLAYERS_KEY, players); load(); save(false); }
 export function addPlayer(name) {
   const id = `p${Date.now().toString(36)}`;
   players.list.push({ id, name: name.trim().slice(0, 30) || 'Joueur' });

@@ -320,3 +320,6 @@ details.card[open] { display: flex; flex-direction: column; gap: 10px; }
 @media (max-width: 420px) { .top-status { gap: 6px; } .midi-chip span, .save-chip span { display: none; } .lvls { width: 120px; } }
 .big-notes { font-size: 22px; font-weight: 700; letter-spacing: .02em; }
 .consigne { font-family: var(--hand); font-size: 26px; font-weight: 700; color: var(--accent); max-width: 30ch; line-height: 1.2; }
+.sql { white-space: pre-wrap; font-size: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; overflow-x: auto; user-select: all; }
+a.save-chip { text-decoration: none; }
+input[type="url"], input[type="email"], input[type="password"] { width: 100%; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); padding: 10px; min-height: 44px; }

@@ -8,6 +8,7 @@ import * as culture from './culture.js';
 import * as travail2 from './travail2.js';
 import * as partitions from './partitions.js';
 import * as v3 from './v3.js';
+import * as sync from './sync.js';
 import { PILIERS, conseilDuJour } from './conseils.js';
 
 const TABS = [
@@ -65,6 +66,11 @@ function unsaved() {
   return s.history.length && s.history[0].t > last;
 }
 function saveButton() {
+  const ss = sync.getStatus();
+  if (ss.status === 'ok' || ss.status === 'syncing') {
+    return h('a', { href: '#journal', class: 'save-chip', title: `Synchro active (${ss.email})`, 'aria-label': 'Synchro active' }, icon('check', 'ic sm'), h('span', null, ss.status === 'syncing' ? 'Synchro…' : 'Synchro'));
+  }
+  if (ss.status === 'error') return h('a', { href: '#journal', class: 'save-chip dirty', title: ss.error }, icon('save', 'ic sm'), h('span', null, 'Synchro ?'));
   const dirty = unsaved();
   return h('button', { type: 'button', class: `save-chip${dirty ? ' dirty' : ''}`, onclick: quickSave, title: dirty ? 'Des progrès ne sont pas encore sauvegardés' : 'Tout est sauvegardé', 'aria-label': 'Sauvegarder ma progression' },
     icon('save', 'ic sm'), h('span', null, dirty ? 'Sauver' : 'Sauvé'));
@@ -316,6 +322,7 @@ function journal(el) {
       h('div', { class: 'row wrap' },
         h('span', null, s.settings.calibrated ? `Décalage compensé : ${s.settings.latencyMs} ms` : 'Pas encore calibré'),
         h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { store.setSetting('calibrated', false); app.open('travail', { sub: 'rythme' }); } }, 'Recalibrer'))),
+    syncSection(),
     h('section', { class: 'card stack' }, h('h2', null, 'Sauvegarde'),
       h('p', { class: 'muted small' }, 'La progression est enregistrée dans ce navigateur. En attendant la synchro automatique : exporte ici, puis importe le fichier sur l’autre appareil.'),
       h('div', { class: 'row wrap' },
@@ -330,6 +337,38 @@ function journal(el) {
   );
 }
 
+// ---------- Synchro ----------
+function syncSection() {
+  const ss = sync.getStatus();
+  const box = h('section', { class: 'card stack', id: 'synchro' }, h('h2', null, 'Synchro entre appareils'));
+  const msg = h('p', { class: 'small', 'aria-live': 'polite' });
+  if (ss.status === 'noconfig') {
+    const url = h('input', { id: 'sb-url', type: 'url', placeholder: 'https://xxxx.supabase.co', autocomplete: 'off' });
+    const key = h('input', { id: 'sb-key', type: 'text', placeholder: 'Clé « anon public »', autocomplete: 'off' });
+    box.append(h('p', { class: 'muted small' }, 'Pas encore configurée. Une fois ton projet Supabase créé, colle ici son adresse et sa clé publique « anon » (Project Settings › API).'),
+      h('label', { for: 'sb-url' }, 'Adresse du projet'), url, h('label', { for: 'sb-key' }, 'Clé anon'), key,
+      h('button', { class: 'btn sm', type: 'button', onclick: async () => { await sync.setConfig(url.value, key.value); route(); } }, 'Enregistrer'),
+      h('details', { class: 'small' }, h('summary', null, 'Script à lancer une fois dans Supabase (SQL Editor)'), h('pre', { class: 'mono sql' }, sync.SETUP_SQL)));
+    return box;
+  }
+  if (ss.status === 'signedout' || (ss.status === 'error' && !ss.email)) {
+    const email = h('input', { id: 'sb-email', type: 'email', autocomplete: 'email', placeholder: 'ton@email.fr' });
+    const pass = h('input', { id: 'sb-pass', type: 'password', autocomplete: 'current-password', placeholder: '6 caractères minimum' });
+    const run = (fn) => async () => { msg.textContent = '…'; try { const r = await fn(email.value.trim(), pass.value); msg.textContent = r === 'confirm' ? 'Compte créé : clique sur le lien reçu par e-mail, puis connecte-toi ici.' : 'Connecté. Ta progression se synchronise.'; renderTop(); setTimeout(route, 800); } catch (e) { msg.textContent = e.message; } };
+    box.append(h('p', { class: 'muted small' }, 'Connecte-toi avec le même compte sur chaque appareil : ta partie suit toute seule.'),
+      h('label', { for: 'sb-email' }, 'E-mail'), email, h('label', { for: 'sb-pass' }, 'Mot de passe'), pass,
+      h('div', { class: 'row wrap' }, h('button', { class: 'btn sm', type: 'button', onclick: run(sync.signIn) }, 'Se connecter'), h('button', { class: 'btn ghost sm', type: 'button', onclick: run(sync.signUp) }, 'Créer mon compte')),
+      ss.error ? h('p', { class: 'bad small' }, ss.error) : null, msg);
+    return box;
+  }
+  box.append(h('p', null, ss.status === 'error' ? `Problème de synchro : ${ss.error}` : `Synchro active pour ${ss.email}. Ta partie (${store.currentPlayer().name}) est envoyée automatiquement après chaque exercice et récupérée à l\u2019ouverture.`),
+    h('p', { class: 'muted small' }, 'Les partitions restent sur chaque appareil pour l\u2019instant.'),
+    h('div', { class: 'row wrap' },
+      h('button', { class: 'btn ghost sm', type: 'button', onclick: async () => { await sync.pull(); toast('Synchronisé.'); route(); } }, 'Synchroniser maintenant'),
+      h('button', { class: 'btn ghost sm', type: 'button', onclick: async () => { await sync.signOut(); route(); } }, 'Se déconnecter')));
+  return box;
+}
+
 // ---------- Démarrage ----------
 store.load();
 applyTheme();
@@ -337,6 +376,8 @@ midi.onStatus(renderTop);
 store.subscribe(renderTop);
 window.addEventListener('hashchange', route);
 route();
+sync.onStatus((st) => { renderTop(); if (st.pulled) { applyTheme(); route(); toast('Progression récupérée depuis ton autre appareil.'); } });
+sync.init();
 if (navigator.permissions && midi.supported) {
   navigator.permissions.query({ name: 'midi' }).then((p) => { if (p.state === 'granted') midi.connect(); }).catch(() => {});
 }
