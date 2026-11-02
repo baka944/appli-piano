@@ -67,7 +67,64 @@ export const CHORDS = {
   dim7: { sym: '°7', fr: 'diminué 7', iv: [[0, 0], [2, 3], [4, 6], [6, 9]], formula: 'tierce mineure, quinte diminuée, septième diminuée' },
   aug: { sym: '+', fr: 'augmenté', iv: [[0, 0], [2, 4], [4, 8]], formula: 'tierce majeure, quinte augmentée' },
   sus4: { sym: 'sus4', fr: 'sus4', iv: [[0, 0], [3, 5], [4, 7]], formula: 'quarte juste à la place de la tierce, quinte juste' },
+  mmaj7: { sym: 'm(maj7)', fr: 'mineur majeur 7', iv: [[0, 0], [2, 3], [4, 7], [6, 11]], formula: 'tierce mineure, quinte juste, septième majeure' },
+  maj7s5: { sym: 'maj7♯5', fr: 'majeur 7 quinte augmentée', iv: [[0, 0], [2, 4], [4, 8], [6, 11]], formula: 'tierce majeure, quinte augmentée, septième majeure' },
+  m6: { sym: 'm6', fr: 'mineur 6', iv: [[0, 0], [2, 3], [4, 7], [5, 9]], formula: 'tierce mineure, quinte juste, sixte majeure' },
 };
+// ---------- Gammes, modes et harmonisation ----------
+export const FAMILIES = {
+  majeure: { label: 'Gamme majeure', iv: [0, 2, 4, 5, 7, 9, 11], ref: 'La F.M. Jazz 2e année, p. 154-158' },
+  harmonique: { label: 'Mineur harmonique', iv: [0, 2, 3, 5, 7, 8, 11], ref: 'La F.M. Jazz 2e année, p. 161' },
+  melodique: { label: 'Mineur mélodique', iv: [0, 2, 3, 5, 7, 9, 11], ref: 'La F.M. Jazz 2e année, p. 162' },
+};
+// Pour chaque mode : nom, accord, note(s) caractéristique(s) (intervalle depuis la fondamentale du mode) et explication.
+export const MODES = {
+  majeure: [
+    { name: 'Ionien', chord: 'maj7', car: [11], txt: 'La 7e majeure. La quarte est une note à éviter sur l\u2019accord : elle frotte avec la tierce.' },
+    { name: 'Dorien', chord: 'm7', car: [9], txt: 'La 6te majeure sur un accord mineur : c\u2019est elle qui distingue le dorien de l\u2019éolien.' },
+    { name: 'Phrygien', chord: 'm7', car: [1], txt: 'La 2de mineure (♭9) : couleur sombre, hispanisante.' },
+    { name: 'Lydien', chord: 'maj7', car: [6], txt: 'La quarte augmentée (♯11) : le majeur sans la note à éviter.' },
+    { name: 'Mixolydien', chord: 'dom7', car: [10], txt: 'La 7e mineure avec la tierce majeure : le son de l\u2019accord de dominante.' },
+    { name: 'Éolien', chord: 'm7', car: [8], txt: 'La 6te mineure (♭6) : le mineur naturel.' },
+    { name: 'Locrien', chord: 'm7b5', car: [1, 6], txt: 'La ♭2 et la quinte diminuée : le mode de l\u2019accord demi-diminué.' },
+  ],
+  harmonique: [
+    { name: 'Mineur harmonique', chord: 'mmaj7', car: [11], txt: 'La 7e majeure dans un mode mineur, à un ton et demi de la ♭6 : la sensible.' },
+    { name: 'Locrien ♮6', chord: 'm7b5', car: [9], txt: 'Comme le locrien, mais avec la 6te majeure.' },
+    { name: 'Ionien ♯5', chord: 'maj7s5', car: [8], txt: 'La quinte augmentée sur un accord majeur 7.' },
+    { name: 'Dorien ♯4', chord: 'm7', car: [6], txt: 'Le dorien avec la quarte augmentée.' },
+    { name: 'Phrygien dominant', chord: 'dom7', car: [1, 8], txt: 'Tierce majeure avec ♭9 et ♭13 : le V7 d\u2019une tonalité mineure.' },
+    { name: 'Lydien ♯2', chord: 'maj7', car: [3, 6], txt: 'La seconde augmentée et la quarte augmentée sur un accord majeur.' },
+    { name: 'Superlocrien ♭♭7', chord: 'dim7', car: [9], txt: 'La 7e diminuée : le mode de l\u2019accord diminué 7 de la sensible.' },
+  ],
+  melodique: [
+    { name: 'Mineur mélodique', chord: 'mmaj7', car: [9, 11], txt: 'Un mineur avec 6te et 7e majeures : la couleur du m(maj7).' },
+    { name: 'Dorien ♭2', chord: 'm7', car: [1], txt: 'Le dorien avec la ♭9, souvent sur les accords 7sus♭9.' },
+    { name: 'Lydien augmenté', chord: 'maj7s5', car: [6, 8], txt: 'Quarte et quinte augmentées : le maj7♯5.' },
+    { name: 'Lydien dominant', chord: 'dom7', car: [6], txt: 'Le 7 avec la ♯11 : très utilisé sur les dominantes qui ne se résolvent pas (IV7, ♭VII7, substituts tritoniques).' },
+    { name: 'Mixolydien ♭13', chord: 'dom7', car: [8], txt: 'La ♭13 sur un accord de dominante, avec la 9e naturelle.' },
+    { name: 'Locrien ♮2', chord: 'm7b5', car: [2], txt: 'Le demi-diminué avec la 9e naturelle : plus doux que le locrien.' },
+    { name: 'Altéré', chord: 'dom7', car: [1, 3, 6, 8], txt: 'Toutes les tensions altérées : ♭9, ♯9, ♯11 et ♭13. Le son du 7alt.' },
+  ],
+};
+export function modeIntervals(family, i) {
+  const f = FAMILIES[family].iv;
+  return f.map((_, k) => { const j = (i + k) % 7; return (f[j] - f[i] + 12) % 12; });
+}
+export function modeNotes(tonic, family, i) {
+  return modeIntervals(family, i).map((st, k) => transpose(tonic, k, st));
+}
+// Accords à 4 sons de chaque degré d'une gamme (empilement de tierces)
+export function harmonize(tonic, family) {
+  const iv = FAMILIES[family].iv;
+  return iv.map((_, d) => {
+    const st = [0, 2, 4, 6].map((k) => ((iv[(d + k) % 7] - iv[d]) + 12) % 12);
+    const type = Object.keys(CHORDS).find((t) => CHORDS[t].iv.length === 4 && CHORDS[t].iv.every(([, x], j) => x === st[j])) || 'maj7';
+    const root = transpose(tonic, d, iv[d]);
+    return { root, type, symbol: chordSymbol(root, type), rootPc: pc(root), semis: CHORDS[type].iv.map(([, x]) => x) };
+  });
+}
+
 export const CHORD_UNLOCKS = [['maj', 'min'], ['dom7', 'maj7'], ['m7'], ['m7b5', 'dim7'], ['aug', 'sus4']];
 
 export function chordNotes(root, type) {
@@ -209,6 +266,16 @@ export const PROGRESSIONS = [
     info: 'Une basse qui descend : I mineur, ♭VII, ♭VI, V. Couleur hispanique, associée au flamenco.' },
   { id: 'i-bvii-iv-i', name: 'I – ♭VII – IV – I', chords: [{ d: 0, q: 'maj' }, { d: 6, alt: -1, q: 'maj' }, { d: 3, q: 'maj' }, { d: 0, q: 'maj' }], level: 3,
     info: 'Le ♭VII emprunté donne une couleur mixolydienne, typique du rock et du funk.' },
+  { id: 'i-iv-v-i-min', name: 'I – IV – V – I mineur', minor: true, chords: [{ d: 0, q: 'm7', minorI: true }, { d: 3, q: 'm7' }, { d: 4, q: 'dom7' }, { d: 0, q: 'm7', minorI: true }], level: 3,
+    info: 'La cadence de base en mineur : le V7 vient de la gamme mineure harmonique (tierce majeure, sensible).' },
+  { id: 'i-vi-ii-v-min', name: 'I – ♭VI – II – V mineur', minor: true, chords: [{ d: 0, q: 'm7', minorI: true }, { d: 5, alt: -1, q: 'maj7' }, { d: 1, q: 'm7b5' }, { d: 4, q: 'dom7' }], level: 3,
+    info: 'Le turnaround en mineur : le ♭VI majeur 7 descend vers le II demi-diminué.' },
+  { id: 'line-cliche', name: 'Line cliché mineur', minor: true, chords: [{ d: 0, q: 'min', minorI: true }, { d: 0, q: 'mmaj7', minorI: true }, { d: 0, q: 'm7', minorI: true }, { d: 0, q: 'm6', minorI: true }], level: 3,
+    info: 'Une seule note descend chromatiquement dans un accord mineur qui ne bouge pas : fondamentale, 7e majeure, 7e mineure, 6te (La F.M. Jazz 2e année, p. 114).' },
+  { id: 'ii-v-i-mmaj', name: 'II – V alt – I m(maj7)', minor: true, chords: [{ d: 1, q: 'm7b5' }, { d: 4, q: 'dom7' }, { d: 0, q: 'mmaj7', minorI: true }], level: 3,
+    info: 'Le II-V-I mineur qui se résout sur la couleur du mineur mélodique. Joue le V en altéré.' },
+  { id: 'backdoor', name: 'Backdoor : IVm – ♭VII7 – I', chords: [{ d: 3, q: 'm7' }, { d: 6, alt: -1, q: 'dom7' }, { d: 0, q: 'maj7' }], level: 3,
+    info: 'Une autre façon d\u2019arriver sur le I : par l\u2019accord ♭VII7, emprunté au mineur. Le ♭VII7 sonne bien en lydien dominant.' },
 ];
 export const PROG_LEVELS = [
   { n: 1, name: 'Les incontournables', ids: ['ii-v-i', 'i-iv-v-i', 'i-v-vi-iv'] },

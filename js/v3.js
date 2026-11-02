@@ -229,63 +229,86 @@ export function licks(root, app) {
 export function voicings(root, app) {
   const st = store.get().settings;
   let cleanup = () => {};
-  let vId = st.voicing || 'shell';
+  let vId = VOICINGS.some((x) => x.id === st.voicing) ? st.voicing : 'shell';
   let keyIdx = st.voicingKey ?? 0;
   let progId = st.voicingProg || 'ii-v-i';
+  let cycle = st.voicingCycle || 'one';
+  const save = () => { Object.assign(st, { voicing: vId, voicingKey: keyIdx, voicingProg: progId, voicingCycle: cycle }); store.save(); };
+
+  function chordList(v) {
+    const keys = cycle === 'all' ? CIRCLE_FOURTHS : [KEYS[keyIdx]];
+    if (v.on === 'prog') {
+      const p = PROGRESSIONS.find((x) => x.id === progId);
+      return keys.flatMap((k) => realize(p, k)).map((c) => ({ symbol: c.symbol, rootPc: c.rootPc, rel: v.build(QUAL[c.q]) }));
+    }
+    return keys.map((k) => ({ symbol: nameFr(k) + ' ' + v.sym, rootPc: pc(k), rel: v.build(QUAL[v.on]) }));
+  }
+
   function home() {
     cleanup();
     const v = VOICINGS.find((x) => x.id === vId);
+    const groups = [...new Set(VOICINGS.map((x) => x.group))];
+    const ex = chordList(v)[0];
+    const exNotes = ex.rel.map((x) => PC[(((ex.rootPc + x) % 12) + 12) % 12]);
     root.replaceChildren(
       h('div', { class: 'page-head' }, h('h1', { class: 'display' }, 'Voicings et fioritures'),
-        h('p', { class: 'lead' }, 'Des façons de disposer les accords, à jouer sur les grandes progressions, et les ornements qui donnent la couleur d’un style.')),
+        h('p', { class: 'lead' }, 'Les voicings jazz les plus utilisés, à une et à deux mains, vérifiés au piano.')),
       h('section', { class: 'card stack' },
-        h('label', { for: 'vc-type' }, 'Type de voicing'),
-        h('select', { id: 'vc-type', onchange: (e) => { vId = e.target.value; st.voicing = vId; store.save(); home(); } }, VOICINGS.map((x) => h('option', { value: x.id, selected: x.id === vId }, x.name))),
-        h('p', { class: 'muted' }, v.desc),
-        h('label', { for: 'vc-prog' }, 'Progression'),
-        h('select', { id: 'vc-prog', onchange: (e) => { progId = e.target.value; st.voicingProg = progId; store.save(); } },
-          PROGRESSIONS.filter((p) => p.chords.every((c) => QUAL[c.q])).map((p) => h('option', { value: p.id, selected: p.id === progId }, p.name))),
-        h('label', { for: 'vc-key' }, 'Tonalité'), keySelect('vc-key', keyIdx, (e) => { keyIdx = +e.target.value; st.voicingKey = keyIdx; store.save(); }),
-        h('button', { class: 'btn', type: 'button', onclick: drill }, 'Commencer')),
+        h('label', { for: 'vc-type' }, 'Voicing'),
+        h('select', { id: 'vc-type', onchange: (e) => { vId = e.target.value; save(); home(); } },
+          groups.map((g) => h('optgroup', { label: g }, VOICINGS.filter((x) => x.group === g).map((x) => h('option', { value: x.id, selected: x.id === vId }, x.name))))),
+        h('p', null, v.desc),
+        v.source ? h('a', { class: 'small', href: v.source.url, target: '_blank', rel: 'noopener' }, `Source : ${v.source.label}`) : null,
+        h('p', { class: 'hand big-notes' }, `${ex.symbol} : ${exNotes.join(' – ')}`),
+        v.on === 'prog' ? [h('label', { for: 'vc-prog' }, 'Progression'),
+          h('select', { id: 'vc-prog', onchange: (e) => { progId = e.target.value; save(); home(); } },
+            PROGRESSIONS.filter((p) => p.chords.every((c) => QUAL[c.q])).map((p) => h('option', { value: p.id, selected: p.id === progId }, p.name)))]
+          : h('p', { class: 'muted small' }, `Sur un accord ${v.sym}, dans une tonalité ou dans les 12.`),
+        h('label', { for: 'vc-cycle' }, 'Tonalités'),
+        h('select', { id: 'vc-cycle', onchange: (e) => { cycle = e.target.value; save(); home(); } }, [['one', 'Une tonalité'], ['all', 'Les 12, par quartes']].map(([k, l]) => h('option', { value: k, selected: k === cycle }, l))),
+        cycle === 'one' ? h('select', { id: 'vc-key', 'aria-label': 'Tonalité', onchange: (e) => { keyIdx = +e.target.value; save(); home(); } }, KEYS.map((k, i) => h('option', { value: i, selected: i === keyIdx }, nameFr(k)))) : null,
+        h('div', { class: 'row' },
+          h('button', { class: 'btn ghost', type: 'button', onclick: async () => { await audio.unlock(); const base = (v.two ? 36 : 48) + ex.rootPc; audio.chord(ex.rel.map((x) => base + x), null, 2, 0.8); } }, 'Écouter'),
+          h('button', { class: 'btn', type: 'button', onclick: drill }, 'Commencer'))),
       h('h2', { class: 'hand-title' }, 'Fioritures'),
       h('p', { class: 'muted small' }, 'Associer un ornement à un style relève de la pratique des musiciens et des enseignants ; je n’ai pas de source écrite pour chacun. Niveau de preuve : avis d’experts.'),
       h('div', { class: 'grid2' }, FIORITURES.map((f) => h('section', { class: 'card stack' },
         h('strong', null, f.name), h('span', { class: 'muted small' }, f.how),
         h('button', { class: 'btn ghost sm', type: 'button', onclick: async () => {
           await audio.unlock();
-          const c = audio.getCtx();
-          const t = c.currentTime + 0.1;
+          const t = audio.getCtx().currentTime + 0.1;
           audio.chord(f.chord[1].map((x) => 48 + x), t, 2.2, 0.4);
           let tt = t;
-          f.demo.forEach(([s, d]) => { audio.tone(72 + s - 12, tt, Math.max(0.1, d + 0.1), 0.8); tt += d; });
+          f.demo.forEach(([n, d]) => { audio.tone(60 + n, tt, Math.max(0.1, d + 0.1), 0.8); tt += d; });
         } }, 'Écouter')))));
   }
+
   function drill() {
     cleanup();
     const v = VOICINGS.find((x) => x.id === vId);
-    const p = PROGRESSIONS.find((x) => x.id === progId);
-    const chords = realize(p, KEYS[keyIdx]).map((c) => {
-      const q = QUAL[c.q];
-      const rel = v.build(q);
-      return { symbol: c.symbol, pcs: [...new Set(rel.map((x) => (((c.rootPc + x) % 12) + 12) % 12))], bass: (((c.rootPc + rel[0]) % 12) + 12) % 12, notes: rel.map((x) => 52 + ((c.rootPc + 12 - 52 % 12) % 12) + x) };
-    });
+    const low = v.two ? 36 : 48;
+    const chords = chordList(v).map((c) => ({
+      symbol: c.symbol,
+      pcs: [...new Set(c.rel.map((x) => (((c.rootPc + x) % 12) + 12) % 12))],
+      bass: (((c.rootPc + c.rel[0]) % 12) + 12) % 12,
+      notes: c.rel.map((x) => low + c.rootPc + x).map((m) => (m < low ? m + 12 : m)),
+    }));
     let i = 0;
     let first = 0;
     let tried = false;
     const chips = h('div', { class: 'chips seq hand big' }, chords.map((c, k) => h('span', { class: `chip${k === 0 ? ' now' : ''}`, 'data-k': k }, c.symbol)));
-    const msg = h('p', { 'aria-live': 'polite' }, `Joue ${chords[0].symbol} en ${v.name}, la note du bas : ${PC[chords[0].bass]}.`);
-    const kb = screenKeyboard({ low: 48, octaves: 2 });
+    const msg = h('p', { 'aria-live': 'polite' }, `Joue ${chords[0].symbol}, note du bas : ${PC[chords[0].bass]}.`);
+    const kb = screenKeyboard({ low, octaves: v.two ? 3 : 2 });
     const col = chordCollector((notes) => {
       const c = chords[i];
       const set = new Set(notes.map((m) => m % 12));
-      const low = Math.min(...notes) % 12;
+      const lowest = Math.min(...notes) % 12;
       const missing = c.pcs.filter((x) => !set.has(x));
-      if (!missing.length && low === c.bass) {
+      if (!missing.length && lowest === c.bass) {
         if (!tried) first++;
         chips.querySelector(`[data-k="${i}"]`).className = 'chip done';
         mark(kb, [], 'hint');
-        i++;
-        tried = false;
+        i++; tried = false;
         if (i >= chords.length) return done();
         chips.querySelector(`[data-k="${i}"]`).className = 'chip now';
         msg.textContent = `Bien. ${chords[i].symbol}, note du bas : ${PC[chords[i].bass]}.`;
@@ -293,23 +316,23 @@ export function voicings(root, app) {
         tried = true;
         msg.textContent = missing.length ? `Il manque : ${missing.map((x) => PC[x]).join(', ')}.` : `Les notes y sont, mais la note du bas doit être ${PC[c.bass]}.`;
       }
-    });
+    }, v.two ? 220 : 150);
     cleanup = () => { col.destroy(); kb.destroy && kb.destroy(); };
     function done() {
       cleanup();
       const score = Math.round((first / chords.length) * 100);
-      store.setBest(`voicing:${vId}:${progId}`, score);
-      const out = store.award('harmonie', 10 + (score >= 85 ? 5 : 0), { activity: 'voicings', label: `${v.name} · ${p.name} en ${keyLabel(KEYS[keyIdx])}`, score });
+      store.setBest(`voicing:${vId}`, score);
+      const out = store.award('harmonie', Math.min(40, 8 + chords.length) + (score >= 85 ? 5 : 0), { activity: 'voicings', label: `Voicing ${v.name}${cycle === 'all' ? ' · 12 tonalités' : ''}`, score });
       app.celebrate(out);
       root.replaceChildren(h('section', { class: 'card stack center' }, h('div', { class: 'score' }, `${score} %`), h('p', { class: 'muted' }, 'Accords trouvés du premier coup.'), h('div', { class: 'xp-gain' }, `+${out.gained} XP`),
         h('div', { class: 'row center' }, h('button', { class: 'btn ghost', type: 'button', onclick: home }, 'Retour'), h('button', { class: 'btn', type: 'button', onclick: drill }, 'Rejouer'))));
     }
     root.replaceChildren(h('button', { class: 'back', type: 'button', onclick: home }, '← Retour'),
-      h('div', { class: 'page-head' }, h('h1', { class: 'display' }, v.name), h('p', { class: 'lead' }, `${p.name} en ${keyLabel(KEYS[keyIdx])}`)),
+      h('div', { class: 'page-head' }, h('h1', { class: 'display' }, v.name), h('p', { class: 'lead' }, v.two ? 'À deux mains : joue tout l’accord d’un coup.' : 'À une main.')),
       h('section', { class: 'card stack' }, chips, msg, kb,
         h('div', { class: 'row' },
           h('button', { class: 'btn ghost sm', type: 'button', onclick: () => col.validate() }, 'Valider l’accord'),
-          h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { tried = true; mark(kb, chords[i].notes, 'hint'); audio.unlock().then(() => audio.chord(chords[i].notes, null, 1.4)); } }, 'Montrer et écouter')),
+          h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { tried = true; mark(kb, chords[i].notes, 'hint'); audio.unlock().then(() => audio.chord(chords[i].notes, null, 1.6)); } }, 'Montrer et écouter')),
         inputHint()));
   }
   home();

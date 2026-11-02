@@ -199,8 +199,65 @@ export function render(el, app, params = {}) {
           : 'Piano non connecté : tu peux taper sur le grand bouton ou la barre d’espace (moins précis qu’au piano).'),
         h('div', { class: 'row' },
           calibration ? null : h('button', { class: 'btn ghost', type: 'button', onclick: () => demo(cfg) }, 'Écouter le modèle'),
-          h('button', { class: 'btn', type: 'button', onclick: () => go(cfg) }, calibration ? 'Commencer le calibrage' : 'Commencer'))),
+          h('button', { class: 'btn', type: 'button', onclick: () => go(cfg) }, calibration ? 'Commencer le calibrage' : ms.status === 'on' ? 'Commencer (mesuré au piano)' : 'Commencer (mesuré au tapotement)')),
+        calibration ? null : h('div', { class: 'metro-box' },
+          h('strong', null, 'Sans piano : métronome seul'),
+          h('p', { class: 'muted small' }, 'Le métronome bat les temps et un bip aigu tombe sur chaque attaque du rythme. Tu joues avec, sans rien brancher et sans être noté.'),
+          h('button', { class: 'btn ghost', type: 'button', onclick: () => metro(cfg) }, 'Lancer le métronome'))),
     );
+  }
+
+  // Métronome seul : boucle sans fin, temps + bip sur les attaques du rythme, pas de mesure.
+  async function metro(cfg) {
+    const c = await audio.unlock();
+    cleanup();
+    const beat = 60 / cfg.bpm;
+    let withHits = true;
+    const start = c.currentTime + 0.3;
+    let nextBar = 0;
+    const started = performance.now();
+    const beatEl = h('div', { class: 'beat-big' }, '1');
+    const slotsBox = h('div', null, slotsView(cfg.pattern, 0));
+    const tempoOut = h('output', { class: 'num' }, cfg.bpm);
+    let bpm = cfg.bpm;
+    let nextT = start;
+    const barLog = [];
+    const timer = setInterval(() => {
+      while (nextT < c.currentTime + 0.5) {
+        const b0 = nextT;
+        const bt = 60 / bpm;
+        barLog.push({ t: b0, bt, n: nextBar });
+        nextT += 4 * bt;
+        for (let i = 0; i < 4; i++) audio.click(b0 + i * bt, i === 0 ? 'accent' : 'soft');
+        if (withHits) cfg.pattern.bars[nextBar % cfg.pattern.bars.length].forEach((p) => audio.click(b0 + posBeats(p, cfg.swing) * bt, 'hit'));
+        nextBar++;
+      }
+    }, 50);
+    let raf = 0;
+    const tick = () => {
+      const now = c.currentTime;
+      const cur = barLog.filter((b) => b.t <= now).pop();
+      if (cur) {
+        const inBar = Math.min(3.99, (now - cur.t) / cur.bt);
+        beatEl.textContent = String(Math.floor(inBar) + 1);
+        slotsBox.replaceChildren(slotsView(cfg.pattern, cur.n, Math.floor(inBar * 2)));
+      }
+      if (barLog.length > 8) barLog.splice(0, barLog.length - 8);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    const stop = () => {
+      clearInterval(timer); cancelAnimationFrame(raf);
+      const mins = Math.round((performance.now() - started) / 60000);
+      if (mins >= 1) { const out = store.award('rythme', Math.min(30, mins * 2), { activity: 'rythme', label: `${cfg.pattern.name} au métronome · ${mins} min`, minutes: mins, pattern: cfg.pattern.id, bpm }); app.celebrate(out); toast(`+${out.gained} XP`); }
+    };
+    stopTap = stop;
+    root.replaceChildren(h('section', { class: 'card stack center run' },
+      h('span', { class: 'muted small' }, `${cfg.pattern.name} · métronome seul`), beatEl, slotsBox,
+      h('label', { for: 'metro-bpm' }, 'Tempo ', tempoOut, ' BPM'),
+      h('input', { id: 'metro-bpm', type: 'range', min: 40, max: 220, step: 2, value: bpm, oninput: (e) => { bpm = +e.target.value; tempoOut.textContent = bpm; } }),
+      h('label', { class: 'check' }, h('input', { id: 'metro-hits', type: 'checkbox', checked: true, onchange: (e) => { withHits = e.target.checked; } }), 'Bip sur les attaques du rythme'),
+      h('button', { class: 'btn', type: 'button', onclick: () => { stop(); stopTap = null; setup(cfg.pattern, false); } }, 'Arrêter')));
   }
 
   async function demo(cfg) {

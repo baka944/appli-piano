@@ -9,6 +9,7 @@ import * as travail2 from './travail2.js';
 import * as partitions from './partitions.js';
 import * as v3 from './v3.js';
 import * as sync from './sync.js';
+import * as modes from './modes.js';
 import { band, sprite } from './pixel.js';
 
 const TABS = [
@@ -248,7 +249,7 @@ function today(el) {
 }
 
 // ---------- Travail ----------
-const WORK_TABS = [['rythme', 'Rythme'], ['licks', 'Licks'], ['impro', 'Impro'], ['voicings', 'Voicings'], ['gammes', 'Gammes'], ['harmonisation', 'Harmonisation'], ['suites', 'Suites d’accords']];
+const WORK_TABS = [['rythme', 'Rythme'], ['licks', 'Licks'], ['impro', 'Impro'], ['voicings', 'Voicings'], ['gammes', 'Gammes et modes'], ['harmonisation', 'Harmonisation'], ['suites', 'Suites d’accords']];
 function work(el, params) {
   let sub = params.sub || 'rythme';
   let stop = null;
@@ -264,8 +265,8 @@ function work(el, params) {
     else if (sub === 'licks') stop = v3.licks(box, app);
     else if (sub === 'impro') stop = v3.impro(box, app);
     else if (sub === 'voicings') stop = v3.voicings(box, app);
-    else if (sub === 'gammes') stop = travail2.gammes(box, app, back);
-    else if (sub === 'harmonisation') stop = travail2.harmonisation(box, app, back);
+    else if (sub === 'gammes') stop = modes.gammes(box, app);
+    else if (sub === 'harmonisation') stop = modes.harmonisation(box, app);
     else stop = travail2.suites(box, app, back);
   }
   show(params);

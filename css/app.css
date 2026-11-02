@@ -348,3 +348,12 @@ input[type="url"], input[type="email"], input[type="password"] { width: 100%; bo
 .reminders li:last-child { border-bottom: 0; }
 .rem-days { font-size: 13px; color: var(--muted); white-space: nowrap; }
 .rem-days.old { color: var(--bad); font-weight: 700; }
+.rule { border-left: 4px solid var(--accent); padding: 8px 12px; background: var(--bg); border-radius: 0 8px 8px 0; display: flex; flex-direction: column; gap: 4px; }
+.rule.missed { border-left-color: var(--bad); }
+.chip.car { background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.chip.guide { outline: 2px solid var(--ink); outline-offset: -2px; }
+.chip small { opacity: .75; }
+.harmo-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+.harmo-list > div { display: flex; flex-direction: column; background: var(--bg); border-radius: 8px; padding: 6px 8px; }
+.harmo-list strong { font-size: 18px; }
+.metro-box { border-top: 1px solid var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }

@@ -2,10 +2,11 @@
 import { h, shuffle, toast, weightedPick } from './ui.js';
 import { parseGrid } from './music.js';
 import { band } from './pixel.js';
+import { REGLES } from './ecriture-data.js';
 import * as store from './store.js';
 import { MUSICIENS, STANDARDS, MOUVEMENTS, QUIZ, ALL_FICHES } from './culture-data.js';
 
-const TABS = [['jour', 'Carte du jour'], ['musiciens', 'Musiciens'], ['standards', 'Standards'], ['frise', 'Frise'], ['cartes', 'Cartes'], ['quiz', 'Quiz éclair'], ['liste', 'Ma liste']];
+const TABS = [['jour', 'Carte du jour'], ['musiciens', 'Musiciens'], ['standards', 'Standards'], ['frise', 'Frise'], ['cartes', 'Cartes'], ['quiz', 'Quiz éclair'], ['ecriture', 'Écriture classique'], ['liste', 'Ma liste']];
 
 function dayIndex(n) { const d = new Date(); return (d.getFullYear() * 400 + d.getMonth() * 31 + d.getDate()) % n; }
 
@@ -61,6 +62,7 @@ export function render(el, app, params = {}) {
         h('a', { class: 'small', href: m.source.url, target: '_blank', rel: 'noopener' }, m.source.label)))),
       h('p', { class: 'muted small' }, 'Le hard bop et le free jazz arriveront quand j’aurai des sources fiables pour leurs dates.'));
     } else if (tab === 'cartes') cartes();
+    else if (tab === 'ecriture') ecriture();
     else if (tab === 'quiz') quiz();
     else liste();
   }
@@ -116,6 +118,43 @@ export function render(el, app, params = {}) {
       stage.replaceChildren(card, answer);
     };
     show();
+  }
+
+  // Écriture classique à 4 voix : test des règles, rappel de la règle après chaque réponse
+  function ecriture() {
+    const deck = [];
+    const pool = REGLES.map((r, i) => ({ ...r, id: `ecr:${i}` }));
+    while (deck.length < 8) { const c = weightedPick(pool, (x) => store.itemWeight(x.id)); deck.push(c); pool.splice(pool.indexOf(c), 1); }
+    let i = 0;
+    let correct = 0;
+    const stage = h('section', { class: 'card stack' });
+    root.append(h('p', { class: 'muted small' }, `Les règles de l\u2019écriture à 4 voix (soprano, alto, ténor, basse) : ${REGLES.length} questions, celles que tu rates reviennent plus souvent.`), stage);
+    const next = () => {
+      if (i >= deck.length) {
+        const out = store.award('culture', correct * 2 + (correct === deck.length ? 3 : 0), { activity: 'culture', label: 'Écriture classique', score: Math.round((correct / deck.length) * 100), correct, total: deck.length });
+        app.celebrate(out);
+        stage.replaceChildren(h('div', { class: 'score' }, `${correct} / ${deck.length}`), h('div', { class: 'xp-gain' }, `+${out.gained} XP`), h('button', { class: 'btn', type: 'button', onclick: () => draw() }, 'Nouvelle série'));
+        return;
+      }
+      const r = deck[i++];
+      let done = false;
+      const box = h('div', { class: 'opts col' }, shuffle([r.a, ...r.wrong]).map((o) => h('button', { class: 'opt', type: 'button', onclick: (e) => {
+        if (done) return;
+        done = true;
+        const ok = o === r.a;
+        if (ok) correct++;
+        store.recordItem(r.id, ok);
+        store.save();
+        box.querySelectorAll('.opt').forEach((b) => { b.disabled = true; if (b.textContent === r.a) b.classList.add('right'); });
+        if (!ok) e.currentTarget.classList.add('wrong');
+        stage.append(h('p', { class: ok ? 'good' : 'bad' }, ok ? 'Juste !' : `Réponse : ${r.a}`),
+          h('div', { class: `rule${ok ? '' : ' missed'}` }, h('strong', null, ok ? 'La règle' : 'Rappel de la règle'), h('p', null, r.regle),
+            h('a', { class: 'small', href: r.src.url, target: '_blank', rel: 'noopener' }, `Source : ${r.src.label}`)),
+          h('button', { class: 'btn', type: 'button', onclick: next }, i >= deck.length ? 'Voir le résultat' : 'Suivant'));
+      } }, o)));
+      stage.replaceChildren(h('div', { class: 'muted small' }, `Question ${i} / ${deck.length}`), h('h2', { class: 'q' }, r.q), box);
+    };
+    next();
   }
 
   function quiz() {

@@ -63,9 +63,9 @@ export function click(when, kind = 'beat') {
   const c = getCtx();
   const o = c.createOscillator();
   const g = c.createGain();
-  o.type = 'square';
-  o.frequency.value = kind === 'accent' ? 1600 : kind === 'count' ? 880 : 1200;
-  const v = kind === 'accent' ? 0.2 : 0.12;
+  o.type = kind === 'hit' ? 'triangle' : 'square';
+  o.frequency.value = kind === 'hit' ? 2200 : kind === 'accent' ? 1600 : kind === 'count' ? 880 : 1200;
+  const v = kind === 'hit' ? 0.35 : kind === 'accent' ? 0.2 : kind === 'soft' ? 0.06 : 0.12;
   g.gain.setValueAtTime(0.0001, when);
   g.gain.exponentialRampToValueAtTime(v, when + 0.002);
   g.gain.exponentialRampToValueAtTime(0.0001, when + 0.05);
