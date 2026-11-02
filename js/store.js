@@ -1,6 +1,6 @@
 // Progression : joueurs, XP, niveaux nommés par des tempos, historique, quêtes.
 // Tout est enregistré dans le navigateur de l'appareil : chaque appareil et chaque joueur a sa propre partie.
-import { SAVE_2026_11_02 } from './seed-save.js';
+import { SEED_ID, SEED_SAVE } from './seed-save.js';
 const PLAYERS_KEY = 'appli-piano-joueurs';
 const OLD_KEY = 'appli-piano-v1';
 const dataKey = (id) => `appli-piano-v1:${id}`;
@@ -124,12 +124,14 @@ const SEEDS = [
 function applySeeds() {
   state.seeds = state.seeds || [];
   let changed = false;
-  if (players.current === 'p1' && !state.seeds.includes('save-2026-11-02') && (state.history || []).length < SAVE_2026_11_02.history.length) {
+  // Sauvegarde envoyée : remplace la partie de l'appareil seulement si celle-ci est plus ancienne.
+  const older = (state.updatedAt || '') < (SEED_SAVE.updatedAt || '') && (state.history || []).length <= SEED_SAVE.history.length;
+  if (players.current === 'p1' && !state.seeds.includes(SEED_ID) && older) {
     const keep = state.seeds;
-    state = normalize(JSON.parse(JSON.stringify(SAVE_2026_11_02)));
-    state.seeds = [...new Set([...(state.seeds || []), ...keep, 'save-2026-11-02'])];
+    state = normalize(JSON.parse(JSON.stringify(SEED_SAVE)));
+    state.seeds = [...new Set([...(state.seeds || []), ...keep, SEED_ID])];
     changed = true;
-  } else if (!state.seeds.includes('save-2026-11-02')) { state.seeds.push('save-2026-11-02'); changed = true; }
+  } else if (!state.seeds.includes(SEED_ID)) { state.seeds.push(SEED_ID); changed = true; }
   SEEDS.forEach((sd) => {
     if (players.current !== sd.player || state.seeds.includes(sd.id)) return;
     sd.songs.forEach((song) => { if (!state.songs.some((x) => x.id === song.id)) state.songs.push({ ...song, modules: defaultModules() }); });
