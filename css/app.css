@@ -374,3 +374,5 @@ input[type="url"], input[type="email"], input[type="password"] { width: 100%; bo
 .lick-tl .tl-dev { font-size: 10px; fill: var(--ink); }
 .lick-tl .tl-head { stroke: var(--accent); stroke-width: 2.5; }
 .lh-line { min-height: 1.2em; }
+.lick-tl .tl-chord { font-size: 12px; font-weight: 700; fill: var(--accent); }
+.lick-tl .tl-chordsep { stroke: var(--accent); stroke-width: 1.5; }

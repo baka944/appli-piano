@@ -1,15 +1,16 @@
 // Bibliothèque de licks. Tous sont écrits pour l'appli : aucune phrase n'est recopiée d'un enregistrement.
 // Les notes sont en demi-tons au-dessus de la tonique (do = 0) ; d = durée en croches ; oct = jouer en octaves.
+// `harmo` (facultatif) : l'accord qui sonne sous chaque note, [croche de départ, fondamentale depuis la tonique, type].
 // `inspi` dit d'où vient l'idée de style, avec sa source quand c'est un fait sur un musicien.
 
 export const LICKS = [
   {
-    id: 'bebop-enclosure', name: 'Arpège et encadrement', style: 'Bebop', over: 'ii-v-i',
+    id: 'bebop-enclosure', harmo: [[0, 2, 'm7'], [4, 7, 'dom7'], [8, 0, 'maj7']],  name: 'Arpège et encadrement', style: 'Bebop', over: 'ii-v-i',
     inspi: 'Vocabulaire bebop : arpège de l’accord, puis on « encadre » la tierce de l’accord d’arrivée par la note du dessus et celle du dessous.',
     notes: [[2, 1], [5, 1], [9, 1], [12, 1], [11, 1], [7, 1], [5, 1], [3, 1], [4, 4]],
   },
   {
-    id: 'bebop-chroma', name: 'Approche chromatique', style: 'Bebop', over: 'ii-v-i',
+    id: 'bebop-chroma', harmo: [[0, 2, 'm7'], [4, 7, 'dom7'], [8, 0, 'maj7']],  name: 'Approche chromatique', style: 'Bebop', over: 'ii-v-i',
     inspi: 'Descente dans l’accord du II, puis note de passage chromatique pour retomber pile sur un temps fort.',
     notes: [[9, 1], [7, 1], [5, 1], [4, 1], [2, 1], [1, 1], [2, 1], [5, 1], [4, 4]],
   },
@@ -44,7 +45,7 @@ export const LICKS = [
     notes: [[4, 1], [7, 1], [10, 1.5], [7, 0.5], [12, 1], [10, 1], [7, 1], [4, 1]],
   },
   {
-    id: 'ballade-pop', name: 'Arpèges de ballade', style: 'Ballade piano (Nobuo Uematsu)', over: 'pop',
+    id: 'ballade-pop', harmo: [[0, 0, 'maj'], [4, 7, 'maj'], [8, 9, 'min'], [12, 5, 'maj']],  name: 'Arpèges de ballade', style: 'Ballade piano (Nobuo Uematsu)', over: 'pop',
     inspi: 'Nobuo Uematsu cite Elton John comme sa plus grande influence (Wikipédia). Ici, des arpèges larges de ballade au piano sur I – V – VI – IV.',
     notes: [[0, 1], [7, 1], [12, 1], [16, 1], [7, 1], [14, 1], [19, 1], [23, 1], [9, 1], [16, 1], [21, 1], [24, 1], [5, 1], [12, 1], [17, 1], [21, 1]],
   },
@@ -56,6 +57,8 @@ export const LICKS = [
 ];
 
 // Contextes harmoniques pour l'accompagnement (degrés relatifs à la tonique)
+// type : clé de CHORDS (music.js), pour nommer les degrés de la mélodie par rapport à l'accord.
+export const CONTEXT_TYPE = { 'ii-v-i': ['m7', 'dom7', 'maj7'], dom7: ['dom7'], maj7: ['maj7'], m7: ['m7'], pop: ['maj', 'maj', 'min', 'maj'] };
 export const CONTEXTS = {
   'ii-v-i': { label: 'II – V – I', chords: [[2, [0, 3, 7, 10], 'm7', 1], [7, [0, 4, 7, 10], '7', 1], [0, [0, 4, 7, 11], 'maj7', 2]] },
   dom7: { label: 'Accord de septième (blues)', chords: [[0, [0, 4, 7, 10], '7', 2]] },

@@ -4,8 +4,8 @@ import * as store from './store.js';
 import * as audio from './audio.js';
 import * as midi from './midi.js';
 import { screenKeyboard, chordCollector, mark } from './keyboard.js';
-import { KEYS, CIRCLE_FOURTHS, nameFr, pc, majorScale, parseGrid, PROGRESSIONS, realize } from './music.js';
-import { LICKS, CONTEXTS, FIORITURES, VOICINGS, QUAL, CONSIGNES } from './licks-data.js';
+import { KEYS, CIRCLE_FOURTHS, nameFr, pc, CHORDS, chordSymbol, transpose, majorScale, parseGrid, PROGRESSIONS, realize } from './music.js';
+import { LICKS, CONTEXTS, CONTEXT_TYPE, FIORITURES, VOICINGS, QUAL, CONSIGNES } from './licks-data.js';
 import * as playalong from './playalong.js';
 import { allPatterns } from './rythme.js';
 
@@ -18,21 +18,28 @@ function keySelect(id, value, onchange, keys = KEYS) {
   return h('select', { id, onchange }, keys.map((k, i) => h('option', { value: i, selected: i === value }, keyLabel(k))));
 }
 
+// Accords sous le lick : le rythme harmonique propre au lick (harmo) s'il existe, sinon le contexte.
+function playBacking(l, tonicPc, t0, beat) {
+  const segs = lickHarmo(l);
+  const total = l.notes.reduce((a, [, d]) => a + d, 0);
+  const end = Math.max(total, segs[segs.length - 1][0] + 8, 16);
+  segs.forEach(([start, r, type], i) => {
+    const stop = i + 1 < segs.length ? segs[i + 1][0] : end;
+    const root = 48 + ((tonicPc + r) % 12);
+    const t = t0 + start * beat / 2;
+    const dur = (stop - start) * beat / 2;
+    audio.tone(root - 12, t, dur * 0.95, 0.6);
+    audio.chord(CHORDS[type].iv.slice(1).map(([, x]) => root + x), t, dur * 0.9, 0.32);
+  });
+}
 // Joue un contexte harmonique + une ligne mélodique
-function playLine(notes, ctxKey, tonicPc, { bpm = 120, swing = true, oct = false, withBacking = true } = {}) {
+function playLine(l, tonicPc, { bpm = 120, swing = true, oct = false, withBacking = true } = {}) {
+  const notes = l.notes;
   const c = audio.getCtx();
   const beat = 60 / bpm;
   const t0 = c.currentTime + 0.1;
   const base = 60 + tonicPc;
-  if (withBacking && CONTEXTS[ctxKey]) {
-    let t = t0;
-    CONTEXTS[ctxKey].chords.forEach(([r, semis, , bars]) => {
-      const root = 48 + ((tonicPc + r) % 12);
-      audio.tone(root - 12, t, bars * 4 * beat * 0.95, 0.7);
-      audio.chord(semis.slice(1).map((s) => root + s), t, bars * 4 * beat * 0.9, 0.35);
-      t += bars * 4 * beat;
-    });
-  }
+  if (withBacking) playBacking(l, tonicPc, t0, beat);
   let t = t0;
   let eighth = 0;
   notes.forEach(([s, d]) => {
@@ -89,11 +96,13 @@ function lhLine() {
 }
 
 // Vérifie une suite de classes de hauteur jouée note à note (à ton rythme)
-function sequenceDrill(container, expectedPcs, { onDone, labelOf = (p) => PC[p], showNames = true } = {}) {
+function sequenceDrill(container, expectedPcs, { onDone, labelOf = (p) => PC[p], showNames = true, labels = null, hints = null } = {}) {
   let i = 0;
   let errors = 0;
-  const chips = h('div', { class: 'chips seq' }, expectedPcs.map((p, k) => h('span', { class: `chip${k === 0 ? ' now' : ''}`, 'data-k': k }, showNames ? labelOf(p) : '?')));
-  const msg = h('p', { 'aria-live': 'polite' }, showNames ? `Commence par ${labelOf(expectedPcs[0])}.` : 'À toi de jouer.');
+  const lab = (k) => (labels ? labels[k] : labelOf(expectedPcs[k]));
+  const hint = (k) => (hints ? hints[k] : labelOf(expectedPcs[k]));
+  const chips = h('div', { class: 'chips seq' }, expectedPcs.map((p, k) => h('span', { class: `chip${k === 0 ? ' now' : ''}`, 'data-k': k }, showNames ? lab(k) : '?')));
+  const msg = h('p', { 'aria-live': 'polite' }, showNames ? `Commence par ${hint(0)}.` : 'À toi de jouer.');
   const kb = screenKeyboard({ low: 48, octaves: 2 });
   const lh = lhLine();
   container.append(chips, msg, lh.el, kb, inputHint());
@@ -102,11 +111,11 @@ function sequenceDrill(container, expectedPcs, { onDone, labelOf = (p) => PC[p],
     if (e.note % 12 === expectedPcs[i]) {
       const chip = chips.querySelector(`[data-k="${i}"]`);
       chip.className = 'chip done';
-      chip.textContent = labelOf(expectedPcs[i]);
+      chip.textContent = labels ? `${labels[i]} · ${labelOf(expectedPcs[i])}` : labelOf(expectedPcs[i]);
       i++;
       if (i >= expectedPcs.length) { cleanup(); onDone(errors); return; }
       chips.querySelector(`[data-k="${i}"]`).className = 'chip now';
-      msg.textContent = 'Bien.';
+      msg.textContent = hints ? `Bien. Ensuite : ${hint(i)}.` : 'Bien.';
     } else {
       errors++;
       msg.textContent = `Pas cette note (${PC[e.note % 12]}).`;
@@ -115,6 +124,47 @@ function sequenceDrill(container, expectedPcs, { onDone, labelOf = (p) => PC[p],
   const cleanup = () => { off(); kb.destroy && kb.destroy(); };
   return cleanup;
 }
+
+// ---------- Degrés des notes d'un lick par rapport à l'accord qui sonne ----------
+const STEPS = { 0: 0, 1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 4, 7: 4, 8: 5, 9: 5, 10: 6, 11: 6 };
+function lickHarmo(l) {
+  if (l.harmo) return l.harmo;
+  let t = 0;
+  return CONTEXTS[l.over].chords.map(([r, , , bars], i) => { const seg = [t, r, CONTEXT_TYPE[l.over][i]]; t += bars * 8; return seg; });
+}
+// Nom jazz du degré : 1 3 5 7 pour les notes de l'accord, 9 11 13 pour les tensions.
+export function degreeName(semis, type) {
+  const iv = CHORDS[type].iv.map(([, x]) => x);
+  const has = (x) => iv.includes(x);
+  const seventh = has(10) || has(11) || type === 'dim7';
+  switch (((semis % 12) + 12) % 12) {
+    case 0: return '1';
+    case 1: return '♭9';
+    case 2: return '9';
+    case 3: return has(4) ? '♯9' : '♭3';
+    case 4: return '3';
+    case 5: return has(5) ? '4' : '11';
+    case 6: return has(6) ? '♭5' : '♯11';
+    case 7: return '5';
+    case 8: return has(8) ? '♯5' : '♭13';
+    case 9: return has(9) && type === 'dim7' ? '°7' : seventh ? '13' : '6';
+    case 10: return '♭7';
+    default: return '7';
+  }
+}
+function lickDegrees(l, keyNote) {
+  const tpc = pc(keyNote);
+  const segs = lickHarmo(l).map(([start, r, type]) => ({ start, r, type, sym: chordSymbol(transpose(keyNote, STEPS[r], r), type) }));
+  let cum = 0;
+  return l.notes.map(([x, d]) => {
+    const seg = segs.filter((g) => g.start <= cum + 0.001).pop() || segs[0];
+    const out = { deg: degreeName(x - seg.r, seg.type), sym: seg.sym, seg: segs.indexOf(seg), name: PC[(tpc + x) % 12], p: cum, d, segs };
+    cum += d;
+    return out;
+  });
+}
+const showMode = () => store.get().settings.lickShow || 'deg';
+const lickLabel = (q) => (showMode() === 'deg' ? q.deg : q.name);
 
 // ---------- Rythme des licks ----------
 const DUREES = { 0.5: 'double croche', 1: 'croche', 1.5: 'croche pointée', 2: 'noire', 3: 'noire pointée', 4: 'blanche', 6: 'blanche pointée', 8: 'ronde' };
@@ -131,42 +181,52 @@ function lickPositions(notes) {
   });
 }
 export const lickSwings = (l) => !/funk|latin|ballade|classique/i.test(l.style);
-// Frise : une case par note, longueur = durée, avec les temps numérotés. Renvoie l'élément et une fonction de mise à jour.
-function lickTimeline(l, tpc) {
+// Frise : accords en haut, une case par note (longueur = durée), temps numérotés en bas.
+function lickTimeline(l, keyNote) {
+  const degs = lickDegrees(l, keyNote);
   const pos = lickPositions(l.notes);
   const total = pos.length ? pos[pos.length - 1].p + pos[pos.length - 1].d : 8;
   const beats = Math.max(4, Math.ceil(total / 2 / 4) * 4);
   const U = 26; // pixels par croche
   const W = beats * 2 * U + 8;
-  let m = `<svg class="lick-tl" viewBox="0 0 ${W} 74" width="${W}" height="74" role="img" aria-label="Rythme du lick">`;
+  const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  let m = `<svg class="lick-tl" viewBox="0 0 ${W} 92" width="${W}" height="92" role="img" aria-label="Rythme du lick">`;
   for (let b = 0; b <= beats; b++) {
     const x = 4 + b * 2 * U;
-    m += `<line x1="${x}" y1="${b % 4 === 0 ? 4 : 14}" x2="${x}" y2="58" class="${b % 4 === 0 ? 'tl-bar' : 'tl-beat'}"/>`;
-    if (b < beats) m += `<text x="${x + 3}" y="70" class="tl-num">${b % 4 + 1}</text><text x="${x + U + 2}" y="70" class="tl-num et">et</text>`;
+    m += `<line x1="${x}" y1="${b % 4 === 0 ? 16 : 22}" x2="${x}" y2="72" class="${b % 4 === 0 ? 'tl-bar' : 'tl-beat'}"/>`;
+    if (b < beats) m += `<text x="${x + 3}" y="86" class="tl-num">${b % 4 + 1}</text><text x="${x + U + 2}" y="86" class="tl-num et">et</text>`;
   }
+  const segs = degs.length ? degs[0].segs : [];
+  segs.forEach((g, i) => {
+    if (g.start >= total) return;
+    m += `<text x="${4 + g.start * U + 2}" y="12" class="tl-chord">${esc(g.sym)}</text>`;
+    if (i) m += `<line x1="${4 + g.start * U}" y1="2" x2="${4 + g.start * U}" y2="16" class="tl-chordsep"/>`;
+  });
   pos.forEach((q, k) => {
     const x = 4 + q.p * U;
-    m += `<g data-k="${k}"><rect x="${x + 1}" y="20" width="${Math.max(8, q.d * U - 2)}" height="30" rx="4" class="tl-note"/><text x="${x + 4}" y="40" class="tl-name">${PC[(tpc + l.notes[k][0]) % 12]}</text></g>`;
+    m += `<g data-k="${k}"><rect x="${x + 1}" y="24" width="${Math.max(8, q.d * U - 2)}" height="30" rx="4" class="tl-note"/><text x="${x + 4}" y="44" class="tl-name">${esc(lickLabel(degs[k]))}</text></g>`;
   });
-  m += `<line x1="4" y1="2" x2="4" y2="60" class="tl-head" visibility="hidden"/></svg>`;
+  m += `<line x1="4" y1="2" x2="4" y2="74" class="tl-head" visibility="hidden"/></svg>`;
   const el = svg(m);
   const wrap = h('div', { class: 'tl-wrap' }, el);
   return {
-    el: wrap, pos, beats, U,
-    grade: (k, cls, txt) => { const g = el.querySelector(`[data-k="${k}"]`); if (!g) return; g.querySelector('rect').setAttribute('class', `tl-note ${cls}`); if (txt) { const t = document.createElementNS('http://www.w3.org/2000/svg', 'text'); t.setAttribute('x', g.querySelector('rect').getAttribute('x')); t.setAttribute('y', 14); t.setAttribute('class', 'tl-dev'); t.textContent = txt; el.append(t); } },
+    el: wrap, pos, beats, U, degs,
+    grade: (k, cls, txt) => { const g = el.querySelector(`[data-k="${k}"]`); if (!g) return; g.querySelector('rect').setAttribute('class', `tl-note ${cls}`); if (txt) { const t = document.createElementNS('http://www.w3.org/2000/svg', 'text'); t.setAttribute('x', g.querySelector('rect').getAttribute('x')); t.setAttribute('y', 66); t.setAttribute('class', 'tl-dev'); t.textContent = txt; el.append(t); } },
+    reveal: (k) => { const g = el.querySelector(`[data-k="${k}"] .tl-name`); if (g && showMode() === 'deg') g.textContent = `${degs[k].deg}·${degs[k].name}`; },
     head: (eighths) => { const ln = el.querySelector('.tl-head'); if (eighths == null) { ln.setAttribute('visibility', 'hidden'); return; } ln.setAttribute('visibility', 'visible'); const x = 4 + eighths * U; ln.setAttribute('x1', x); ln.setAttribute('x2', x); },
-    reset: () => { el.querySelectorAll('.tl-dev').forEach((t) => t.remove()); el.querySelectorAll('rect.tl-note').forEach((r) => r.setAttribute('class', 'tl-note')); },
   };
 }
-function rhythmText(l) {
-  return lickPositions(l.notes).map((q, k) => `${PC[l.notes[k][0] % 12]} : ${DUREES[q.d] || `${q.d} croches`}, sur « ${q.count} »`);
+function rhythmText(l, keyNote) {
+  const degs = lickDegrees(l, keyNote);
+  return lickPositions(l.notes).map((q, k) => `${degs[k].deg} de ${degs[k].sym} (${degs[k].name}) : ${DUREES[q.d] || `${q.d} croches`}, sur « ${q.count} »`);
 }
 
 // Exercice en rythme : décompte d'une mesure, métronome, puis chaque note est notée sur la hauteur et la mise en place.
-function rhythmDrill(container, l, tpc, { bpm, swing, backing, onDone }) {
+function rhythmDrill(container, l, keyNote, { bpm, swing, backing, onDone }) {
   const s = store.get();
+  const tpc = pc(keyNote);
   const pcs = l.notes.map(([x]) => (tpc + x) % 12);
-  const tl = lickTimeline(l, tpc);
+  const tl = lickTimeline(l, keyNote);
   const big = h('div', { class: 'beat-big' }, '…');
   const msg = h('p', { 'aria-live': 'polite' }, 'Décompte d’une mesure, puis joue le lick avec le métronome.');
   const lh = lhLine();
@@ -183,15 +243,7 @@ function rhythmDrill(container, l, tpc, { bpm, swing, backing, onDone }) {
     const rec = start + 4 * beat;
     const totalBeats = 4 + tl.beats;
     for (let b = 0; b < totalBeats; b++) audio.click(start + b * beat, b % 4 === 0 ? 'accent' : 'beat');
-    if (backing && CONTEXTS[l.over]) {
-      let t = rec;
-      CONTEXTS[l.over].chords.forEach(([r, semis, , bars]) => {
-        const root = 48 + ((tpc + r) % 12);
-        audio.tone(root - 12, t, bars * 4 * beat * 0.95, 0.6);
-        audio.chord(semis.slice(1).map((x) => root + x), t, bars * 4 * beat * 0.9, 0.3);
-        t += bars * 4 * beat;
-      });
-    }
+    if (backing) playBacking(l, tpc, rec, beat);
     const onsetCtx = tl.pos.map((q) => rec + q.p * e8 + (swing && q.p % 1 === 0 && q.p % 2 === 1 ? beat * 0.16 : 0));
     await sleep(150);
     if (stopped) return;
@@ -212,6 +264,7 @@ function rhythmDrill(container, l, tpc, { bpm, swing, backing, onDone }) {
       const a = Math.abs(dev);
       const cls = !okPitch ? 'g-loin' : a <= tol * 0.5 ? 'g-parfait' : a <= tol ? 'g-bien' : a <= tol * 2 ? 'g-juste' : 'g-loin';
       tl.grade(i, cls, !okPitch ? PC[e.note % 12] : a <= tol * 0.5 ? '' : `${dev > 0 ? '+' : '−'}${Math.round(a)}`);
+      if (okPitch) tl.reveal(i);
       i++;
     }, { expected: () => pcs[i], onLH: lh.show });
     const lastEnd = rec + (tl.pos.length ? (tl.pos[tl.pos.length - 1].p + tl.pos[tl.pos.length - 1].d) : 8) * e8;
@@ -276,21 +329,23 @@ export function licks(root, app) {
     const st = s.settings;
     const opt = { bpm: st.lickBpm || 80, swing: lickSwings(l), backing: !!st.lickBacking };
     const bpmOut = h('output', { class: 'num' }, opt.bpm);
-    const tl = lickTimeline(l, tpc);
+    const tl = lickTimeline(l, k);
     root.replaceChildren(
       h('button', { class: 'back', type: 'button', onclick: home }, '← Tous les licks'),
       h('div', { class: 'page-head' }, h('h1', { class: 'display' }, l.name), h('p', { class: 'lead' }, `${l.style} · sur ${CONTEXTS[l.over].label}`)),
       h('section', { class: 'card stack' },
         h('p', null, l.inspi),
         h('div', { class: 'row wrap' }, h('label', { for: 'lk-key' }, 'Tonalité'), keySelect('lk-key', keyIdx, (e) => detail(l, +e.target.value))),
-        h('h2', { class: 'hand-title sm' }, 'Notes et rythme'),
+        h('div', { class: 'seg', role: 'group', 'aria-label': 'Afficher' }, [['deg', 'Degrés (1, 3, 9…)'], ['note', 'Noms des notes']].map(([v, t]) =>
+          h('button', { type: 'button', class: showMode() === v ? 'on' : '', 'aria-pressed': showMode() === v ? 'true' : 'false', onclick: () => { store.setSetting('lickShow', v); detail(l, keyIdx); } }, t))),
+        h('h2', { class: 'hand-title sm' }, 'Degrés et rythme'),
         tl.el,
         h('details', null, h('summary', null, 'Le rythme note par note'),
-          h('ul', { class: 'small' }, rhythmText({ ...l, notes: l.notes.map(([x, d]) => [(tpc + x) % 12, d]) }).map((t) => h('li', null, t)))),
-        h('p', { class: 'muted small' }, `Chaque case dure le temps de la note ; « et » = la croche entre deux temps.${opt.swing ? ' Croches swing : la croche sur le « et » arrive un peu en retard.' : ' Croches droites.'}`),
+          h('ul', { class: 'small' }, rhythmText(l, k).map((t) => h('li', null, t)))),
+        h('p', { class: 'muted small' }, `En haut, l’accord qui sonne ; dans chaque case, le degré de la note par rapport à cet accord (1 = fondamentale, 3 = tierce, 9, 11, 13 = tensions). Chaque case dure le temps de la note ; « et » = la croche entre deux temps.${opt.swing ? ' Croches swing : la croche sur le « et » arrive un peu en retard.' : ' Croches droites.'}`),
         h('div', { class: 'row wrap' },
-          h('button', { class: 'btn ghost', type: 'button', onclick: async () => { await audio.unlock(); playLine(l.notes, l.over, tpc, { oct: l.oct, swing: opt.swing }); } }, 'Écouter avec l’accompagnement'),
-          h('button', { class: 'btn ghost', type: 'button', onclick: async () => { await audio.unlock(); playLine(l.notes, l.over, tpc, { oct: l.oct, withBacking: false, bpm: opt.bpm, swing: opt.swing }); } }, 'Écouter au tempo choisi'))),
+          h('button', { class: 'btn ghost', type: 'button', onclick: async () => { await audio.unlock(); playLine(l, tpc, { oct: l.oct, swing: opt.swing }); } }, 'Écouter avec l’accompagnement'),
+          h('button', { class: 'btn ghost', type: 'button', onclick: async () => { await audio.unlock(); playLine(l, tpc, { oct: l.oct, withBacking: false, bpm: opt.bpm, swing: opt.swing }); } }, 'Écouter au tempo choisi'))),
       h('section', { class: 'card stack' },
         h('h2', { class: 'hand-title sm' }, 'Réglages'),
         h('label', { for: 'lk-bpm' }, 'Tempo ', bpmOut, ' BPM'),
@@ -334,9 +389,9 @@ export function licks(root, app) {
     const run = () => {
       const tpc = pc(keys[ki]);
       box.replaceChildren(h('p', { class: 'hand-title sm' }, `${l.name} · en ${keyLabel(keys[ki])} (${ki + 1}/${keys.length})${mode === 'rythme' ? ` · ${opt.bpm} BPM` : ''}`),
-        h('button', { class: 'btn ghost sm', type: 'button', onclick: async () => { await audio.unlock(); playLine(l.notes, l.over, tpc, { oct: l.oct, withBacking: false, bpm: mode === 'rythme' ? opt.bpm : 90, swing: opt.swing }); } }, 'Écouter'));
+        h('button', { class: 'btn ghost sm', type: 'button', onclick: async () => { await audio.unlock(); playLine(l, tpc, { oct: l.oct, withBacking: false, bpm: mode === 'rythme' ? opt.bpm : 90, swing: opt.swing }); } }, 'Écouter'));
       if (mode === 'rythme') {
-        cleanup = rhythmDrill(box, l, tpc, { ...opt, onDone: (r) => {
+        cleanup = rhythmDrill(box, l, keys[ki], { ...opt, onDone: (r) => {
           agg.n += r.n; agg.notesOk += r.notesOk; agg.inTime += r.inTime;
           const last = ki + 1 >= keys.length;
           box.append(h('div', { class: 'row' },
@@ -344,7 +399,10 @@ export function licks(root, app) {
             h('button', { class: 'btn', type: 'button', onclick: () => { if (last) finish(); else { ki++; run(); } } }, last ? 'Terminer' : `Suivant : ${keyLabel(keys[ki + 1])}`)));
         } });
       } else {
+        const degs = lickDegrees(l, keys[ki]);
         cleanup = sequenceDrill(box, l.notes.map(([x]) => (tpc + x) % 12), {
+          labels: showMode() === 'deg' ? degs.map((q) => q.deg) : null,
+          hints: showMode() === 'deg' ? degs.map((q) => `${q.deg} (sur ${q.sym})`) : null,
           onDone: (err) => {
             totalErr += err;
             ki++;
