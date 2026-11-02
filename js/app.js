@@ -249,7 +249,7 @@ function today(el) {
 }
 
 // ---------- Travail ----------
-const WORK_TABS = [['rythme', 'Rythme'], ['licks', 'Licks'], ['impro', 'Impro'], ['voicings', 'Voicings'], ['gammes', 'Gammes et modes'], ['harmonisation', 'Harmonisation'], ['suites', 'Suites d’accords']];
+const WORK_TABS = [['rythme', 'Rythme'], ['licks', 'Licks'], ['impro', 'Impro'], ['voicings', 'Voicings'], ['gammes', 'Gammes'], ['harmonisation', 'Harmonisation'], ['suites', 'Suites d’accords']];
 function work(el, params) {
   let sub = params.sub || 'rythme';
   let stop = null;
