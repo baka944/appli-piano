@@ -323,3 +323,28 @@ details.card[open] { display: flex; flex-direction: column; gap: 10px; }
 .sql { white-space: pre-wrap; font-size: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; overflow-x: auto; user-select: all; }
 a.save-chip { text-decoration: none; }
 input[type="url"], input[type="email"], input[type="password"] { width: 100%; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); padding: 10px; min-height: 44px; }
+
+/* Accueil : programme du jour */
+.sprite-band { display: flex; flex-wrap: nowrap; overflow: hidden; gap: 6px; align-items: flex-end; padding: 10px 12px; border-radius: 12px; background: #1B1D22; width: fit-content; max-width: 100%; box-shadow: inset 0 0 0 3px #3A3E4C; }
+.sprite { display: block; image-rendering: pixelated; }
+.plan-card { gap: 10px; }
+.day-count { font-family: var(--hand); font-size: 22px; font-weight: 700; color: var(--accent); }
+.block { border-top: 1px solid var(--line); padding-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+.block-head { display: flex; align-items: center; gap: 10px; }
+.block.single { flex-direction: row; align-items: center; gap: 10px; }
+.block.single .todo { flex: 1; min-width: 0; }
+.block-n { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-weight: 700; font-size: 14px; flex-shrink: 0; }
+.song-pick { width: auto; min-height: 36px; padding: 4px 8px; margin-left: auto; max-width: 60%; }
+.todo { display: flex; align-items: center; gap: 10px; min-height: 52px; }
+.todo.nested { padding-left: 36px; }
+.todo-check { width: 30px; height: 30px; border-radius: 8px; border: 2px solid var(--staff); background: transparent; display: grid; place-items: center; cursor: pointer; flex-shrink: 0; color: var(--accent-ink); padding: 0; }
+.todo.done .todo-check { background: var(--accent); border-color: var(--accent); }
+.todo-main { flex: 1; min-width: 0; text-align: left; background: none; border: 0; padding: 4px 0; cursor: pointer; display: flex; flex-direction: column; }
+.todo-main strong { font-size: 16px; }
+.todo.done .todo-main strong { color: var(--muted); text-decoration: line-through; }
+.todo-go { color: var(--muted); font-size: 22px; }
+.reminders { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.reminders li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.reminders li:last-child { border-bottom: 0; }
+.rem-days { font-size: 13px; color: var(--muted); white-space: nowrap; }
+.rem-days.old { color: var(--bad); font-weight: 700; }

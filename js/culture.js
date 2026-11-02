@@ -1,6 +1,7 @@
 // Onglet Culture : fiches sourcées, frise, quiz éclair, liste d'écoute.
 import { h, shuffle, toast, weightedPick } from './ui.js';
 import { parseGrid } from './music.js';
+import { band } from './pixel.js';
 import * as store from './store.js';
 import { MUSICIENS, STANDARDS, MOUVEMENTS, QUIZ, ALL_FICHES } from './culture-data.js';
 
@@ -16,6 +17,7 @@ export function render(el, app, params = {}) {
 
   function header() {
     return h('div', { class: 'stack' },
+      band(['piano', 'trompette', 'saxo', 'contrebasse', 'guitare', 'batterie'], 4),
       h('div', { class: 'page-head' }, h('h1', { class: 'display' }, 'Culture'),
         h('p', { class: 'lead' }, 'Quelques minutes pour te cultiver. Chaque fait est sourcé ; le type de source est indiqué sous la fiche.')),
       h('div', { class: 'seg scroll', role: 'tablist' }, TABS.map(([id, label]) =>
