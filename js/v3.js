@@ -555,6 +555,7 @@ export function voicings(root, app) {
 }
 
 // ---------- Impro guidée ----------
+const CHANGE_EVERY = [['never', 'Jamais : une seule contrainte pour toute la session'], ['tours:1', 'À chaque tour de grille'], ['tours:2', 'Tous les 2 tours'], ['tours:4', 'Tous les 4 tours'], ['bars:4', 'Toutes les 4 mesures'], ['bars:8', 'Toutes les 8 mesures'], ['bars:16', 'Toutes les 16 mesures']];
 export function impro(root, app) {
   const s = store.get();
   let session = null;
@@ -565,7 +566,7 @@ export function impro(root, app) {
     const st = s.settings;
     root.replaceChildren(
       h('div', { class: 'page-head' }, h('h1', { class: 'display' }, 'Impro guidée'),
-        h('p', { class: 'lead' }, 'L’appli joue la grille et te donne une consigne différente à chaque tour. Une contrainte à la fois, pour construire ton vocabulaire.')),
+        h('p', { class: 'lead' }, 'L’appli joue la grille et te donne une contrainte. Tu choisis laquelle, et tous les combien elle change.')),
       h('section', { class: 'card stack' },
         h('label', { for: 'im-src' }, 'Sur quoi improviser'),
         h('select', { id: 'im-src' },
@@ -574,7 +575,13 @@ export function impro(root, app) {
         h('label', { for: 'im-tempo' }, 'Tempo'),
         h('select', { id: 'im-tempo' }, [80, 100, 120, 140, 160, 200].map((b) => h('option', { value: b, selected: (st.improTempo || 100) === b }, `${b} BPM`))),
         h('label', { for: 'im-tours' }, 'Nombre de tours'),
-        h('select', { id: 'im-tours' }, [2, 4, 6, 8].map((n) => h('option', { value: n, selected: (st.improTours || 4) === n }, `${n} tours`))),
+        h('select', { id: 'im-tours' }, [2, 4, 6, 8, 12, 16, 32].map((n) => h('option', { value: n, selected: (st.improTours || 4) === n }, `${n} tours`))),
+        h('label', { for: 'im-cons' }, 'Contrainte'),
+        h('select', { id: 'im-cons' }, h('option', { value: '-1', selected: (st.improCons ?? -1) === -1 }, 'Au hasard'),
+          CONSIGNES.map((c, i) => h('option', { value: i, selected: st.improCons === i }, c))),
+        h('label', { for: 'im-every' }, 'La contrainte change'),
+        h('select', { id: 'im-every' }, CHANGE_EVERY.map(([v, l]) => h('option', { value: v, selected: (st.improEvery || 'never') === v }, l))),
+        h('p', { class: 'muted small' }, 'Si tu choisis une contrainte précise, elle sert en premier, puis les suivantes arrivent au hasard quand elle change.'),
         h('button', { class: 'btn', type: 'button', onclick: go }, 'Lancer')));
   }
   async function go() {
@@ -583,6 +590,8 @@ export function impro(root, app) {
     st.improSrc = document.getElementById('im-src').value;
     st.improTempo = +document.getElementById('im-tempo').value;
     st.improTours = +document.getElementById('im-tours').value;
+    st.improCons = +document.getElementById('im-cons').value;
+    st.improEvery = document.getElementById('im-every').value;
     store.save();
     let bars;
     let meter = 4;
@@ -598,12 +607,16 @@ export function impro(root, app) {
       bars = realize(p, KEYS[0]).map((c) => ({ chords: [{ name: c.symbol, root: c.rootPc, semis: c.semis, bass: c.rootPc }] }));
       title = p.name;
     }
-    const consignes = shuffle(CONSIGNES);
+    const first = st.improCons >= 0 ? CONSIGNES[st.improCons] : null;
+    const consignes = first ? [first, ...shuffle(CONSIGNES.filter((c) => c !== first))] : shuffle(CONSIGNES);
+    const [unit, nStr] = st.improEvery === 'never' ? ['never', '0'] : st.improEvery.split(':');
+    const span = unit === 'bars' ? +nStr : unit === 'tours' ? +nStr * bars.length : Infinity; // mesures par contrainte
+    const nextEl = h('p', { class: 'muted small' }, '');
     const big = h('p', { class: 'consigne' }, consignes[0]);
     const info = h('p', { class: 'muted small' }, 'Décompte…');
     const chordNow = h('p', { class: 'hand big-notes' }, '');
     const started = performance.now();
-    root.replaceChildren(h('section', { class: 'card stack center' }, h('span', { class: 'muted small' }, title), big, chordNow, info,
+    root.replaceChildren(h('section', { class: 'card stack center' }, h('span', { class: 'muted small' }, title), big, nextEl, chordNow, info,
       h('button', { class: 'btn ghost', type: 'button', onclick: () => stop() }, 'Arrêter')));
     const pat = allPatterns().find((x) => x.id === (st.paPattern || 'charleston')) || allPatterns()[0];
     session = playalong.start({
@@ -611,7 +624,12 @@ export function impro(root, app) {
       onBar: (b, k, count) => {
         if (b < 0) { info.textContent = `Décompte : ${count}`; return; }
         const tour = Math.floor(k / bars.length);
-        big.textContent = consignes[tour % consignes.length];
+        const ci = span === Infinity ? 0 : Math.floor(k / span);
+        big.textContent = consignes[ci % consignes.length];
+        const left = span === Infinity ? null : span - (k % span);
+        const totalLeft = st.improTours * bars.length - k;
+        nextEl.textContent = left == null || left >= totalLeft ? 'Même contrainte jusqu’à la fin.'
+          : left === 1 ? `Dernière mesure. Ensuite : ${consignes[(ci + 1) % consignes.length]}` : `Nouvelle contrainte dans ${left} mesures.`;
         chordNow.textContent = bars[b].chords.map((c) => c.name).join('  ');
         info.textContent = `Tour ${tour + 1} / ${st.improTours} · mesure ${b + 1}`;
       },
