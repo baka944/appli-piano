@@ -245,7 +245,7 @@ function today(el) {
         h('span', null, r.label, r.song ? h('span', { class: 'muted small' }, ' · morceau') : null),
         h('span', { class: `rem-days${r.n == null || r.n >= 7 ? ' old' : ''}` }, r.n == null ? 'jamais travaillé' : `il y a ${r.n} jours`))))
         : h('p', { class: 'muted' }, 'Tout a été travaillé ces derniers jours.')),
-    h('p', { class: 'muted small' }, `XP du jour : ${store.dailyXp()} / ${store.DAILY_CAP}`),
+    h('p', { class: 'muted small' }, `XP du jour (plafond ${store.DAILY_CAP} par domaine) : ${Object.entries(store.DOMAINS).map(([k, d]) => `${d.label} ${store.dailyXp(k)}`).join(' · ')}`),
   );
 }
 
@@ -408,6 +408,7 @@ midi.onStatus(renderTop);
 store.subscribe(renderTop);
 window.addEventListener('hashchange', route);
 route();
+{ const st0 = store.get(); if (st0.xpRendue > 0 && !st0.xpRendueVue) { toast(`+${st0.xpRendue} XP rendus : le plafond du jour compte maintenant par domaine.`); st0.xpRendueVue = true; store.save(false); } }
 sync.onStatus((st) => { renderTop(); if (st.pulled) { applyTheme(); route(); toast('Progression récupérée depuis ton autre appareil.'); } });
 sync.init();
 maj.start();

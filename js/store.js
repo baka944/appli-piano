@@ -4,7 +4,7 @@ import { SEED_ID, SEED_SAVE } from './seed-save.js';
 const PLAYERS_KEY = 'appli-piano-joueurs';
 const OLD_KEY = 'appli-piano-v1';
 const dataKey = (id) => `appli-piano-v1:${id}`;
-export const DAILY_CAP = 300;
+export const DAILY_CAP = 300; // par domaine (Morceaux, Travail, Oreille, Culture) et par jour
 export const QUEST_REWARD = 100;
 
 export const TEMPOS = ['Largo', 'Larghetto', 'Adagio', 'Andante', 'Andantino', 'Moderato', 'Allegretto', 'Allegro', 'Vivace', 'Presto', 'Prestissimo'];
@@ -58,7 +58,7 @@ function fresh(withPersonal = false) {
     v: 1,
     xp: 0,
     skills: Object.fromEntries(Object.keys(SKILLS).map((k) => [k, 0])),
-    daily: { date: '', xp: 0 },
+    daily: { date: '', xp: 0, byDomain: {} },
     history: [],
     items: {},
     best: {},
@@ -100,7 +100,40 @@ export function load() {
   const data = readJson(dataKey(players.current));
   state = data ? normalize(data) : fresh(false);
   applySeeds();
+  migrateDomainCap();
   return state;
+}
+
+// Le plafond de 300 XP par jour est passé de « toute la journée » à « par domaine » (3 nov. 2026).
+// On recalcule chaque séance de l'historique avec la nouvelle règle et on rend l'XP qui avait été perdue.
+function migrateDomainCap() {
+  const FLAG = 'plafond-par-domaine';
+  state.migrations = state.migrations || [];
+  if (state.migrations.includes(FLAG)) return;
+  const used = {};
+  const chrono = state.history.slice().reverse();
+  let added = 0;
+  chrono.forEach((e) => {
+    const dom = SKILL_DOMAIN[e.skill] || e.skill;
+    const key = `${e.date}|${dom}`;
+    const raw = e.raw != null ? e.raw : e.xp;
+    const now = Math.min(raw, Math.max(0, DAILY_CAP - (used[key] || 0)));
+    used[key] = (used[key] || 0) + now;
+    const delta = now - (e.xp || 0);
+    if (delta > 0) {
+      state.skills[e.skill] = (state.skills[e.skill] || 0) + delta;
+      state.xp += delta;
+      added += delta;
+      e.xp = now;
+      e.rendu = delta;
+    }
+  });
+  const d = today();
+  state.daily = { date: d, xp: 0, byDomain: {} };
+  Object.entries(used).forEach(([k, v]) => { const [date, dom] = k.split('|'); if (date === d) state.daily.byDomain[dom] = v; });
+  state.migrations.push(FLAG);
+  state.xpRendue = added;
+  writeJson(dataKey(players.current), state);
 }
 
 // Morceaux ajoutés à la demande de Christopher (joueur p1), une seule fois.
@@ -148,6 +181,7 @@ export function save(touch = true) {
 // Remplace la partie locale par celle venue d'un autre appareil (synchro).
 export function replace(data) {
   state = normalize(data);
+  migrateDomainCap();
   writeJson(dataKey(players.current), state);
   listeners.forEach((f) => f(state));
 }
@@ -186,6 +220,7 @@ export function importJson(text) {
   if (!parsed || parsed.v !== 1 || typeof parsed.xp !== 'number') throw new Error('Ce fichier ne vient pas de l’appli piano.');
   delete parsed.player;
   state = normalize(parsed);
+  migrateDomainCap();
   save();
 }
 export function reset() { state = fresh(false); save(); }
@@ -213,19 +248,26 @@ export function isoWeek(date = new Date()) {
   return { id: `${d.getUTCFullYear()}-S${String(w).padStart(2, '0')}`, n: w };
 }
 function weekOf(iso) { return isoWeek(new Date(iso)).id; }
-export function dailyXp() { return state.daily.date === today() ? state.daily.xp : 0; }
+// XP gagnée aujourd'hui dans un domaine (ou au total si aucun domaine n'est donné).
+export function dailyXp(dom) {
+  if (state.daily.date !== today()) return 0;
+  const by = state.daily.byDomain || {};
+  return dom ? by[dom] || 0 : Object.values(by).reduce((a, b) => a + b, 0);
+}
 
 // ---------- XP ----------
 export function award(skill, amount, entry = {}) {
   amount = Math.max(0, Math.round(amount));
-  if (state.daily.date !== today()) state.daily = { date: today(), xp: 0 };
-  const room = Math.max(0, DAILY_CAP - state.daily.xp);
+  if (state.daily.date !== today()) state.daily = { date: today(), xp: 0, byDomain: {} };
+  state.daily.byDomain = state.daily.byDomain || {};
+  const d0 = SKILL_DOMAIN[skill] || skill;
+  const room = Math.max(0, DAILY_CAP - (state.daily.byDomain[d0] || 0));
   const gained = Math.min(amount, room);
+  state.daily.byDomain[d0] = (state.daily.byDomain[d0] || 0) + gained;
   const dom = SKILL_DOMAIN[skill];
   const before = dom ? domainLevel(dom).level : null;
   state.xp += gained;
   state.skills[skill] = (state.skills[skill] || 0) + gained;
-  state.daily.xp += gained;
   state.history.unshift({ t: new Date().toISOString(), date: today(), skill, xp: gained, raw: amount, ...entry });
   if (state.history.length > 500) state.history.length = 500;
   const result = {
