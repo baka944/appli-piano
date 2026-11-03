@@ -1,69 +1,142 @@
-// Bibliothèque de licks. Tous sont écrits pour l'appli : aucune phrase n'est recopiée d'un enregistrement.
+// Bibliothèque de licks : le vocabulaire le plus enseigné dans chaque style, écrit sous une forme courte et transposable.
 // Les notes sont en demi-tons au-dessus de la tonique (do = 0) ; d = durée en croches ; oct = jouer en octaves.
 // `harmo` (facultatif) : l'accord qui sonne sous chaque note, [croche de départ, fondamentale depuis la tonique, type].
 // `inspi` dit d'où vient l'idée de style, avec sa source quand c'est un fait sur un musicien.
 
+// Sources pédagogiques : elles décrivent le type de phrase (vocabulaire courant), pas une phrase recopiée d'un enregistrement.
+const S = {
+  'lick': { label: 'jazz-guitar-licks.com, « What is The Lick »', url: 'https://www.jazz-guitar-licks.com/blog/lessons/what-is-the-lick.html' },
+  '251': { label: 'The Jazz Piano Site, ii-V7-I licks', url: 'https://thejazzpianosite.com/?p=2767' },
+  'four': { label: 'Wikipédia, Four note group', url: 'https://en.wikipedia.org/wiki/Four_note_group' },
+  'bebopsc': { label: 'No Treble, Introduction to Bebop Scale Forms', url: 'https://www.notreble.com/?p=7570' },
+  'encl': { label: 'jazz-guitar-licks.com, Target tones and enclosures', url: 'https://www.jazz-guitar-licks.com/blog/lessons/target-notes-enclosures-jazz-guitar-lesson.html' },
+  'blue3': { label: 'MusicGurus, The blue third', url: 'https://www.musicgurus.com/courses/beginning-jazz-piano-part-1/lessons/the-blue-third-beginner-jazz-piano/' },
+  'bluesj': { label: 'Piano With Jonny, 10 funky blues riffs & licks', url: 'https://pianowithjonny.com/piano-lessons/10-essential-funky-blues-riffs-and-licks-piano/' },
+  'funk': { label: 'Piano With Jonny, The top 10 piano funk licks', url: 'https://pianowithjonny.com/piano-lessons/the-top-10-piano-funk-licks/' },
+  'neo': { label: 'Piano With Jonny, Neo soul improv with the pentatonic scale', url: 'https://pianowithjonny.com/piano-lessons/neo-soul-piano-improv-with-the-pentatonic-scale/' },
+  'glasper': { label: 'Free Jazz Lessons, 5 Robert Glasper licks', url: 'https://www.freejazzlessons.com/?p=20084' },
+  'mccoy': { label: 'Jazzadvice, McCoy Tyner and the pentatonic scale', url: 'https://www.jazzadvice.com/lessons/mccoy-tyner-and-the-pentatonic-scale/' },
+};
 export const LICKS = [
-  {
-    id: 'bebop-enclosure', harmo: [[0, 2, 'm7'], [4, 7, 'dom7'], [8, 0, 'maj7']],  name: 'Arpège et encadrement', style: 'Bebop', over: 'ii-v-i',
-    inspi: 'Vocabulaire bebop : arpège de l’accord, puis on « encadre » la tierce de l’accord d’arrivée par la note du dessus et celle du dessous.',
-    notes: [[2, 1], [5, 1], [9, 1], [12, 1], [11, 1], [7, 1], [5, 1], [3, 1], [4, 4]],
-  },
-  {
-    id: 'bebop-chroma', harmo: [[0, 2, 'm7'], [4, 7, 'dom7'], [8, 0, 'maj7']],  name: 'Approche chromatique', style: 'Bebop', over: 'ii-v-i',
-    inspi: 'Descente dans l’accord du II, puis note de passage chromatique pour retomber pile sur un temps fort.',
-    notes: [[9, 1], [7, 1], [5, 1], [4, 1], [2, 1], [1, 1], [2, 1], [5, 1], [4, 4]],
-  },
-  {
-    id: 'blues-crush', name: 'Blues : tierce écrasée', style: 'Blues / hard bop', over: 'dom7',
-    inspi: 'La tierce mineure glissée vers la tierce majeure, puis la quinte diminuée en note de passage : le son du blues. Horace Silver privilégiait des mélodies directes plutôt que l’harmonie complexe (Wikipédia).',
-    notes: [[3, 0.5], [4, 1.5], [7, 1], [10, 1], [7, 1], [6, 1], [5, 1], [3, 1], [0, 4]],
-  },
-  {
-    id: 'lyrique-neuf', name: 'Ligne lyrique sur la neuvième', style: 'Lyrique (Bill Evans)', over: 'maj7',
-    inspi: 'Bill Evans est connu pour son improvisation lyrique et ses harmonies riches (Britannica). Ici : une ligne chantante qui met en valeur la 9e et la 7e majeure.',
-    notes: [[7, 1], [9, 1], [11, 1], [14, 3], [12, 1], [11, 1], [9, 4]],
-  },
-  {
-    id: 'octaves-wes', name: 'Phrase en octaves', style: 'Wes Montgomery', over: 'm7', oct: true,
-    inspi: 'Wes Montgomery jouait beaucoup en octaves et construisait ses solos en trois étapes : notes seules, octaves, puis accords (Wikipédia). À jouer aux deux mains ou en octave à la main droite, comme sur Four On Six.',
-    notes: [[0, 1], [3, 1], [5, 1], [7, 1], [10, 2], [7, 1], [5, 1], [3, 4]],
-  },
-  {
-    id: 'funk-penta', name: 'Pentatonique syncopée', style: 'Funk / neo soul', over: 'm7',
-    inspi: 'La gamme pentatonique mineure jouée en décalé : un vocabulaire courant en funk et en jazz-funk (repère pédagogique, non sourcé).',
-    notes: [[0, 1], [3, 0.5], [5, 1.5], [7, 1], [10, 1], [12, 1], [10, 1], [7, 2]],
-  },
-  {
-    id: 'quartes', name: 'Montée en quartes', style: 'Modal (Herbie Hancock)', over: 'm7',
-    inspi: 'Des quartes empilées donnent une couleur ouverte, modale. Koji Kondo cite Herbie Hancock et Chick Corea parmi ses influences (Wikipédia).',
-    notes: [[0, 1], [5, 1], [10, 1], [15, 1], [14, 1], [10, 1], [7, 2], [3, 4]],
-  },
-  {
-    id: 'montuno', name: 'Petit montuno latin', style: 'Latin (Koji Kondo)', over: 'dom7',
-    inspi: 'La musique de Super Mario Bros. repose surtout sur des genres dansants comme la musique latine, avec des boucles courtes (Wikipédia). Ici, un motif syncopé à boucler.',
-    notes: [[4, 1], [7, 1], [10, 1.5], [7, 0.5], [12, 1], [10, 1], [7, 1], [4, 1]],
-  },
-  {
-    id: 'ballade-pop', harmo: [[0, 0, 'maj'], [4, 7, 'maj'], [8, 9, 'min'], [12, 5, 'maj']],  name: 'Arpèges de ballade', style: 'Ballade piano (Nobuo Uematsu)', over: 'pop',
-    inspi: 'Nobuo Uematsu cite Elton John comme sa plus grande influence (Wikipédia). Ici, des arpèges larges de ballade au piano sur I – V – VI – IV.',
-    notes: [[0, 1], [7, 1], [12, 1], [16, 1], [7, 1], [14, 1], [19, 1], [23, 1], [9, 1], [16, 1], [21, 1], [24, 1], [5, 1], [12, 1], [17, 1], [21, 1]],
-  },
-  {
-    id: 'gruppetto', name: 'Gruppetto classique', style: 'Classique (Yoko Shimomura)', over: 'maj7',
-    inspi: 'Yoko Shimomura cite Beethoven, Chopin et Ravel parmi ses influences (Wikipédia). Le gruppetto tourne autour d’une note : au-dessus, la note, en dessous, la note.',
-    notes: [[7, 0.5], [9, 0.5], [7, 0.5], [6, 0.5], [7, 2], [11, 1], [14, 1], [12, 2]],
-  },
+  // ---------- Bebop ----------
+  { id: 'the-lick', name: '« The Lick »', style: 'Bebop', level: 1, over: 'm7', src: S.lick,
+    inspi: 'La phrase la plus célèbre du jazz, devenue un cliché à force d’être jouée : 1-2-♭3-4, puis 2 et la tonique encadrée par la ♭7 et la 2.',
+    notes: [[0, 1], [2, 1], [3, 1], [5, 1], [2, 2], [-2, 1], [0, 1]] },
+  { id: 'arpege-guide', name: 'Arpèges et notes guides', style: 'Bebop', level: 1, over: 'ii-v-i', src: S['251'],
+    harmo: [[0, 2, 'm7'], [4, 7, 'dom7'], [8, 0, 'maj7']],
+    inspi: 'Arpège de Dm7, descente dans G7, et la 7e de G7 (fa) qui descend sur la tierce de Cmaj7 (mi) : la résolution de base du II-V-I.',
+    notes: [[2, 1], [5, 1], [9, 1], [12, 1], [11, 1], [9, 1], [7, 1], [5, 1], [4, 4]] },
+  { id: 'coltrane-1235', name: '1-2-3-5 sur chaque accord', style: 'Bebop', level: 2, over: 'ii-v-i', src: S.four,
+    harmo: [[0, 2, 'm7'], [4, 7, 'dom7'], [8, 0, 'maj7']],
+    inspi: 'Le groupe de 4 notes 1-2-3-5, transposé sur chaque accord. Coltrane en a bâti une grande partie de son solo sur Giant Steps.',
+    notes: [[2, 1], [4, 1], [5, 1], [9, 1], [7, 1], [9, 1], [11, 1], [14, 1], [16, 4]] },
+  { id: 'bebop-scale', name: 'Gamme bebop descendante', style: 'Bebop', level: 2, over: 'v-i', src: S.bebopsc,
+    inspi: 'La gamme bebop de dominante : un demi-ton de passage entre la fondamentale et la ♭7 pour que les notes de l’accord tombent sur les temps (1, ♭7, 5, 3).',
+    notes: [[19, 1], [18, 1], [17, 1], [16, 1], [14, 1], [12, 1], [11, 1], [9, 1], [7, 4]] },
+  { id: 'encadrement', name: 'Encadrement de la tierce', style: 'Bebop', level: 2, over: 'v-i', src: S.encl,
+    inspi: 'Arpège de G7 avec la ♭9, puis on encadre la tierce de Cmaj7 : la note du dessus (fa) et celle du dessous (ré♯) avant d’y arriver.',
+    notes: [[7, 1], [11, 1], [14, 1], [17, 1], [20, 1], [19, 1], [17, 1], [15, 1], [16, 4]] },
+  { id: 'ii-v-i-mineur', name: 'II-V-I mineur', style: 'Bebop', level: 2, over: 'ii-v-i-min', src: S['251'],
+    harmo: [[0, 2, 'm7b5'], [4, 7, 'dom7'], [8, 0, 'min']],
+    inspi: 'Arpège du demi-diminué, puis sur G7 la tierce et la ♭9 (la♭), qui descendent vers la tierce mineure de do mineur.',
+    notes: [[2, 1], [5, 1], [8, 1], [12, 1], [11, 1], [8, 1], [7, 1], [5, 1], [3, 4]] },
+  { id: 'bebop-2-mesures', name: 'Ligne bebop sur 2 mesures', style: 'Bebop', level: 3, over: 'ii-v-i', src: S.encl,
+    harmo: [[0, 2, 'm7'], [8, 7, 'dom7'], [16, 0, 'maj7']],
+    inspi: 'Une mesure par accord. Arpège de Dm9, encadrement de si, arpège de G7♭9, note de passage bebop (fa♯) et encadrement de la tierce de Cmaj7.',
+    notes: [[2, 1], [5, 1], [9, 1], [12, 1], [16, 1], [14, 1], [12, 1], [10, 1], [11, 1], [14, 1], [17, 1], [20, 1], [19, 1], [18, 1], [17, 1], [15, 1], [16, 4]] },
+
+  // ---------- Blues ----------
+  { id: 'blue-third', name: 'La tierce bleue', style: 'Blues', level: 1, over: 'dom7', src: S.blue3,
+    inspi: 'On écrase la tierce mineure sur la tierce majeure, presque en même temps : le son de base du blues au piano.',
+    notes: [[3, 0.5], [4, 1.5], [7, 1], [4, 1], [0, 4]] },
+  { id: 'penta-descente', name: 'Descente pentatonique', style: 'Blues', level: 1, over: 'dom7', src: S.bluesj,
+    inspi: 'La pentatonique mineure qui descend de la tonique à la tonique. Sur un accord 7, la ♭3 sonne « bleue ».',
+    notes: [[12, 1], [10, 1], [7, 1], [5, 1], [3, 1], [0, 3]] },
+  { id: 'quinte-bleue', name: 'La quinte bleue', style: 'Blues', level: 2, over: 'dom7', src: S.bluesj,
+    inspi: 'La gamme blues : la ♭5 (sol♭) glisse entre la quinte et la quarte. On termine sous la tonique et on y revient.',
+    notes: [[10, 1], [7, 1], [6, 1], [5, 1], [3, 1], [0, 1], [-2, 1], [0, 1]] },
+  { id: 'riff-repete', name: 'Riff répété', style: 'Blues', level: 2, over: 'dom7', src: S.bluesj,
+    inspi: 'Un petit riff qu’on répète tel quel (ostinato) : tierce bleue, quinte, tonique en haut. À rejouer plusieurs fois de suite.',
+    notes: [[3, 0.5], [4, 0.5], [7, 1], [12, 1], [7, 1], [3, 0.5], [4, 0.5], [7, 1], [12, 1], [7, 1]] },
+  { id: 'majeur-mineur', name: 'Majeur et mineur mélangés', style: 'Blues', level: 2, over: 'dom7', src: S.blue3,
+    inspi: 'On passe par la ♭3 et la 3 dans la même phrase, puis la 6te et la ♭7 : le mélange majeur / mineur typique du jazz blues.',
+    notes: [[0, 1], [2, 1], [3, 1], [4, 1], [7, 1], [9, 1], [10, 1], [9, 1], [7, 4]] },
+  { id: 'descente-doubles', name: 'Descente rapide de la gamme blues', style: 'Blues', level: 3, over: 'dom7', src: S.bluesj,
+    inspi: 'La gamme blues en doubles croches de la tonique jusqu’en bas, puis la tierce bleue et retour à la tonique.',
+    notes: [[12, 0.5], [10, 0.5], [7, 0.5], [6, 0.5], [5, 0.5], [3, 0.5], [0, 0.5], [-2, 0.5], [3, 0.5], [4, 1.5], [0, 2]] },
+
+  // ---------- Funk ----------
+  { id: 'funk-penta', name: 'Pentatonique syncopée', style: 'Funk', level: 1, over: 'm7', src: S.funk,
+    inspi: 'La pentatonique mineure sur un vamp mineur, avec une note décalée en double croche pour le groove.',
+    notes: [[0, 1], [3, 1], [5, 0.5], [7, 1.5], [10, 1], [7, 1], [5, 1], [3, 1]] },
+  { id: 'funk-septieme', name: 'Riff ♭7 – tonique', style: 'Funk', level: 1, over: 'dom7', src: S.funk,
+    inspi: 'Un riff court autour de la ♭7 et de la tonique, avec la ♭5 en passage : du vocabulaire de vamp funk sur un accord 7.',
+    notes: [[10, 0.5], [12, 1], [10, 0.5], [7, 1], [6, 0.5], [7, 1.5], [10, 1], [12, 2]] },
+  { id: 'funk-glisse', name: 'Glissés ♯4 – 5', style: 'Funk', level: 2, over: 'm7', src: S.funk,
+    inspi: 'Le glissé d’un demi-ton fa♯ → sol, qui donne le côté « crunchy » au funk, puis descente vers la tonique.',
+    notes: [[6, 0.5], [7, 0.5], [10, 1], [6, 0.5], [7, 0.5], [3, 1], [5, 0.5], [3, 0.5], [0, 3]] },
+  { id: 'funk-dorien', name: 'La sixte du dorien', style: 'Funk', level: 2, over: 'm7', src: S.funk,
+    inspi: 'Le funk mineur emprunte souvent au dorien : la 6te majeure (la sur do mineur) éclaire la ligne.',
+    notes: [[9, 0.5], [10, 0.5], [12, 1], [10, 0.5], [9, 0.5], [7, 1], [5, 0.5], [3, 0.5], [2, 1], [0, 2]] },
+  { id: 'funk-quartes', name: 'Quartes qui dégringolent', style: 'Funk', level: 3, over: 'm7', src: S.funk,
+    inspi: 'Une descente bâtie en quartes (fa-do-sol-ré, puis mi♭-si♭-fa-do), en doubles croches, comme les runs de quartes du funk.',
+    notes: [[17, 0.5], [12, 0.5], [7, 0.5], [2, 0.5], [15, 0.5], [10, 0.5], [5, 0.5], [0, 0.5], [3, 1], [5, 1], [7, 2]] },
+  { id: 'funk-chroma', name: 'Chromatisme en doubles croches', style: 'Funk', level: 3, over: 'dom7', src: S.funk,
+    inspi: 'Descente chromatique de la ♭7 à la quinte, tierce bleue, puis remontée de l’arpège en croches droites.',
+    notes: [[10, 0.5], [9, 0.5], [8, 0.5], [7, 0.5], [4, 0.5], [3, 0.5], [0, 0.5], [3, 0.5], [4, 1], [7, 1], [10, 1], [12, 1]] },
+
+  // ---------- Neo soul ----------
+  { id: 'neo-penta9', name: 'Pentatonique et neuvième', style: 'Neo soul', level: 1, over: 'm7', src: S.neo,
+    inspi: 'Les notes de la pentatonique mineure, et on finit sur la 9e puis la tonique : la couleur douce du neo soul.',
+    notes: [[3, 1], [5, 1], [7, 1], [10, 1], [14, 2], [12, 2]] },
+  { id: 'neo-maj9', name: 'Cascade maj9', style: 'Neo soul', level: 1, over: 'maj7', src: S.neo,
+    inspi: 'L’accord maj9 égrené de haut en bas : 9, 7, 5, 3, puis 9 et tonique.',
+    notes: [[14, 1], [11, 1], [7, 1], [4, 1], [2, 2], [0, 2]] },
+  { id: 'neo-pedale', name: 'Descente avec pédale de quinte', style: 'Neo soul', level: 2, over: 'm7', src: S.glasper,
+    inspi: 'Une descente chromatique vers la tonique, avec la quinte rejouée entre chaque note, dans l’esprit des lignes de Robert Glasper.',
+    notes: [[3, 0.5], [7, 0.5], [2, 0.5], [7, 0.5], [1, 0.5], [7, 0.5], [0, 1], [10, 1], [7, 1], [12, 2]] },
+  { id: 'neo-appog', name: 'Appoggiature sur la 9e', style: 'Neo soul', level: 2, over: 'm7', src: S.glasper,
+    inspi: 'Une petite note chromatique juste sous la 9e (ré♭ → ré), puis une ligne posée, en retard sur le temps.',
+    notes: [[13, 0.5], [14, 1.5], [12, 1], [10, 1], [7, 0.5], [10, 0.5], [12, 1], [14, 2]] },
+  { id: 'neo-penta-maj', name: 'Pentatonique majeure 6/9', style: 'Neo soul', level: 2, over: 'maj7', src: S.neo,
+    inspi: 'La pentatonique majeure sur un accord maj7 : 13, 5, 3, 9 et tonique, la couleur 6/9.',
+    notes: [[9, 0.5], [7, 0.5], [4, 1], [2, 1], [0, 1], [2, 0.5], [4, 0.5], [7, 1], [9, 2]] },
+  { id: 'neo-sequence', name: 'Séquence pentatonique', style: 'Neo soul', level: 3, over: 'm7', src: S.neo,
+    inspi: 'La pentatonique de si♭ majeur sur do mineur 7 (11, 9, 1, ♭7, 5) en groupes de 4 doubles croches qui redescendent d’un cran à chaque fois.',
+    notes: [[17, 0.5], [14, 0.5], [12, 0.5], [10, 0.5], [14, 0.5], [12, 0.5], [10, 0.5], [7, 0.5], [12, 0.5], [10, 0.5], [7, 0.5], [5, 0.5], [3, 2]] },
+
+  // ---------- Modal ----------
+  { id: 'modal-quartes', name: 'Quartes empilées', style: 'Modal', level: 1, over: 'm7', src: S.mccoy,
+    inspi: 'Trois quartes justes qui montent depuis la tonique, puis on redescend : le son ouvert du jazz modal.',
+    notes: [[0, 1], [5, 1], [10, 1], [15, 1], [14, 1], [10, 1], [7, 2]] },
+  { id: 'modal-une-sur-deux', name: 'Pentatonique une note sur deux', style: 'Modal', level: 1, over: 'm7', src: S.mccoy,
+    inspi: 'La pentatonique mineure en sautant une note à chaque fois : des quartes et des tierces, un exercice conseillé pour sonner comme McCoy Tyner.',
+    notes: [[0, 1], [5, 1], [3, 1], [7, 1], [5, 1], [10, 1], [7, 1], [12, 1]] },
+  { id: 'modal-penta5', name: 'Pentatonique de la quinte', style: 'Modal', level: 2, over: 'm7', src: S.mccoy,
+    inspi: 'La pentatonique mineure bâtie sur la quinte (sol mineur sur do mineur 7) : elle donne la 9e et la 11e.',
+    notes: [[17, 1], [14, 1], [12, 1], [10, 1], [14, 1], [12, 1], [10, 1], [7, 1]] },
+  { id: 'modal-quartes-desc', name: 'Quartes en séquence', style: 'Modal', level: 2, over: 'm7', src: S.mccoy,
+    inspi: 'Deux groupes de quartes qui descendent : fa-do-sol-ré puis mi♭-si♭-fa-do.',
+    notes: [[17, 1], [12, 1], [7, 1], [2, 1], [15, 1], [10, 1], [5, 1], [0, 1]] },
+  { id: 'modal-dehors', name: 'Sortir d’un demi-ton et revenir', style: 'Modal', level: 3, over: 'm7', src: S.mccoy,
+    inspi: 'Une mesure de pentatonique de do mineur, une mesure un demi-ton au-dessus (do♯ mineur : ça sonne « dehors »), et retour : tension puis détente.',
+    notes: [[0, 1], [3, 1], [5, 1], [7, 1], [10, 1], [7, 1], [5, 1], [3, 1], [1, 1], [4, 1], [6, 1], [8, 1], [11, 1], [8, 1], [6, 1], [4, 1], [3, 1], [0, 3]] },
+  { id: 'modal-quartes-rapides', name: 'Quartes en doubles croches', style: 'Modal', level: 3, over: 'm7', src: S.mccoy,
+    inspi: 'Trois groupes de quartes qui montent en doubles croches (do-fa-si♭-mi♭, ré-sol-do-fa, sol-do-fa-si♭), puis on se pose sur la quinte.',
+    notes: [[0, 0.5], [5, 0.5], [10, 0.5], [15, 0.5], [2, 0.5], [7, 0.5], [12, 0.5], [17, 0.5], [7, 0.5], [12, 0.5], [17, 0.5], [22, 0.5], [19, 2]] },
 ];
+export const LEVELS = { 1: 'Facile', 2: 'Moyen', 3: 'Avancé' };
 
 // Contextes harmoniques pour l'accompagnement (degrés relatifs à la tonique)
 // type : clé de CHORDS (music.js), pour nommer les degrés de la mélodie par rapport à l'accord.
-export const CONTEXT_TYPE = { 'ii-v-i': ['m7', 'dom7', 'maj7'], dom7: ['dom7'], maj7: ['maj7'], m7: ['m7'], pop: ['maj', 'maj', 'min', 'maj'] };
+export const CONTEXT_TYPE = { 'ii-v-i': ['m7', 'dom7', 'maj7'], dom7: ['dom7'], maj7: ['maj7'], m7: ['m7'], pop: ['maj', 'maj', 'min', 'maj'], 'v-i': ['dom7', 'maj7'], 'ii-v-i-min': ['m7b5', 'dom7', 'min'] };
 export const CONTEXTS = {
   'ii-v-i': { label: 'II – V – I', chords: [[2, [0, 3, 7, 10], 'm7', 1], [7, [0, 4, 7, 10], '7', 1], [0, [0, 4, 7, 11], 'maj7', 2]] },
   dom7: { label: 'Accord de septième (blues)', chords: [[0, [0, 4, 7, 10], '7', 2]] },
   maj7: { label: 'Accord majeur 7', chords: [[0, [0, 4, 7, 11], 'maj7', 2]] },
   m7: { label: 'Accord mineur 7', chords: [[0, [0, 3, 7, 10], 'm7', 2]] },
+  'v-i': { label: 'V – I', chords: [[7, [0, 4, 7, 10], '7', 1], [0, [0, 4, 7, 11], 'maj7', 1]] },
+  'ii-v-i-min': { label: 'II – V – I mineur', chords: [[2, [0, 3, 6, 10], 'm7♭5', 1], [7, [0, 4, 7, 10], '7', 1], [0, [0, 3, 7], 'm', 2]] },
   pop: { label: 'I – V – VI – IV', chords: [[0, [0, 4, 7], '', 1], [7, [0, 4, 7], '', 1], [9, [0, 3, 7], 'm', 1], [5, [0, 4, 7], '', 1]] },
 };
 

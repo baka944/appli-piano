@@ -5,7 +5,7 @@ import * as audio from './audio.js';
 import * as midi from './midi.js';
 import { screenKeyboard, chordCollector, mark } from './keyboard.js';
 import { KEYS, CIRCLE_FOURTHS, nameFr, pc, CHORDS, chordSymbol, transpose, majorScale, parseGrid, PROGRESSIONS, realize } from './music.js';
-import { LICKS, CONTEXTS, CONTEXT_TYPE, FIORITURES, VOICINGS, QUAL, CONSIGNES, CHAINS } from './licks-data.js';
+import { LICKS, LEVELS, CONTEXTS, CONTEXT_TYPE, FIORITURES, VOICINGS, QUAL, CONSIGNES, CHAINS } from './licks-data.js';
 import * as playalong from './playalong.js';
 import { allPatterns } from './rythme.js';
 
@@ -181,7 +181,7 @@ function lickPositions(notes) {
     return { p, d, count: sub ? `${beat} ${sub}` : String(beat), bar: Math.floor(p / 8) };
   });
 }
-export const lickSwings = (l) => !/funk|latin|ballade|classique/i.test(l.style);
+export const lickSwings = (l) => !/funk|neo|latin|ballade|classique/i.test(l.style);
 // Frise : accords en haut, une case par note (longueur = durée), temps numérotés en bas.
 function lickTimeline(l, keyNote) {
   const degs = lickDegrees(l, keyNote);
@@ -303,7 +303,7 @@ export function licks(root, app) {
   function header() {
     return h('div', { class: 'stack' },
       h('div', { class: 'page-head' }, h('h1', { class: 'display' }, 'Licks'),
-        h('p', { class: 'lead' }, 'Du vocabulaire à écouter, jouer au piano et transposer dans les 12 tonalités. Les licks sont écrits pour l’appli, dans le style des musiciens que tu aimes.')),
+        h('p', { class: 'lead' }, 'Le vocabulaire le plus enseigné en bebop, blues, funk, neo soul et modal, du plus facile au plus dur. À écouter, jouer en rythme et transposer dans les 12 tonalités.')),
       h('div', { class: 'seg', role: 'tablist' }, [['biblio', 'Bibliothèque'], ['releves', 'Mes relevés']].map(([id, l]) =>
         h('button', { type: 'button', role: 'tab', 'aria-selected': view === id ? 'true' : 'false', class: view === id ? 'on' : '', onclick: () => { view = id; home(); } }, l))));
   }
@@ -314,12 +314,12 @@ export function licks(root, app) {
     const styles = [...new Set(LICKS.map((l) => l.style))];
     styles.forEach((st) => {
       root.append(h('h2', { class: 'hand-title' }, st));
-      LICKS.filter((l) => l.style === st).forEach((l) => {
+      LICKS.filter((l) => l.style === st).sort((a, b) => (a.level || 1) - (b.level || 1)).forEach((l) => {
         const best = store.getBest(`lick:${l.id}`);
         const bestR = store.getBest(`lick:${l.id}:rythme`);
         root.append(h('button', { type: 'button', class: 'card pick', onclick: () => detail(l) },
           h('span', { class: 'pick-title' }, l.name),
-          h('span', { class: 'muted small' }, `Sur ${CONTEXTS[l.over].label} · ${l.notes.length} notes${best != null ? ` · notes : ${best} %` : ''}${bestR != null ? ` · en rythme : ${bestR} %` : ''}`)));
+          h('span', { class: 'muted small' }, `${l.level ? `Niveau ${l.level} · ${LEVELS[l.level].toLowerCase()} · ` : ''}Sur ${CONTEXTS[l.over].label} · ${l.notes.length} notes${best != null ? ` · notes : ${best} %` : ''}${bestR != null ? ` · en rythme : ${bestR} %` : ''}`)));
       });
     });
   }
@@ -333,9 +333,10 @@ export function licks(root, app) {
     const tl = lickTimeline(l, k);
     root.replaceChildren(
       h('button', { class: 'back', type: 'button', onclick: home }, '← Tous les licks'),
-      h('div', { class: 'page-head' }, h('h1', { class: 'display' }, l.name), h('p', { class: 'lead' }, `${l.style} · sur ${CONTEXTS[l.over].label}`)),
+      h('div', { class: 'page-head' }, h('h1', { class: 'display' }, l.name), h('p', { class: 'lead' }, `${l.style}${l.level ? ` · niveau ${l.level} (${LEVELS[l.level].toLowerCase()})` : ''} · sur ${CONTEXTS[l.over].label}`)),
       h('section', { class: 'card stack' },
         h('p', null, l.inspi),
+        l.src ? h('a', { class: 'small', href: l.src.url, target: '_blank', rel: 'noopener' }, `Source (type de phrase) : ${l.src.label}`) : null,
         h('div', { class: 'row wrap' }, h('label', { for: 'lk-key' }, 'Tonalité'), keySelect('lk-key', keyIdx, (e) => detail(l, +e.target.value))),
         h('div', { class: 'seg', role: 'group', 'aria-label': 'Afficher' }, [['deg', 'Degrés (1, 3, 9…)'], ['note', 'Noms des notes']].map(([v, t]) =>
           h('button', { type: 'button', class: showMode() === v ? 'on' : '', 'aria-pressed': showMode() === v ? 'true' : 'false', onclick: () => { store.setSetting('lickShow', v); detail(l, keyIdx); } }, t))),
