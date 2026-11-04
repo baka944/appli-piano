@@ -1,6 +1,9 @@
 // Fiches Culture. Chaque fait vient de la source citée sur la fiche (consultée le 31/10/2026).
 // Types de source : « encyclopédie » (Britannica), « Wikipédia » (encyclopédie collaborative),
 // « presse spécialisée » (magazines et sites de musique), « disquaire / salle » (pages professionnelles).
+import { COURANTS, QUIZ_COURANTS } from './courants-data.js';
+
+export { COURANTS };
 
 const SRC = {
   britEvans: { label: 'Britannica · Bill Evans', url: 'https://www.britannica.com/biography/Bill-Evans', type: 'encyclopédie' },
@@ -330,4 +333,7 @@ QUIZ.push(
   { q: 'Pour quel jeu de combat Yoko Shimomura a-t-elle composé presque toute la musique ?', a: 'Street Fighter II', wrong: ['Tekken', 'Mortal Kombat', 'Soulcalibur'], ref: 'yoko-shimomura' },
 );
 
-export const ALL_FICHES = [...MUSICIENS.map((f) => ({ ...f, cat: 'Musicien' })), ...STANDARDS.map((f) => ({ ...f, cat: 'Standard' }))];
+// À ajouter à la fin : les cartes gardent leur historique grâce à leur position dans la liste.
+QUIZ.push(...QUIZ_COURANTS);
+
+export const ALL_FICHES = [...MUSICIENS.map((f) => ({ ...f, cat: 'Musicien' })), ...STANDARDS.map((f) => ({ ...f, cat: 'Standard' })), ...COURANTS.map((f) => ({ ...f, cat: 'Courant' }))];

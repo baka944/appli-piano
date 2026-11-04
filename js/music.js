@@ -114,6 +114,33 @@ export function modeIntervals(family, i) {
 export function modeNotes(tonic, family, i) {
   return modeIntervals(family, i).map((st, k) => transpose(tonic, k, st));
 }
+// Nom du degré selon sa place dans la gamme (une 2de à 3 demi-tons = ♯2, pas ♭3).
+const ALT_DEG = { '-2': '♭♭', '-1': '♭', 0: '', 1: '♯', 2: '♯♯' };
+export function degName(k, st) {
+  let d = st - NAT[k];
+  if (d > 6) d -= 12;
+  if (d < -6) d += 12;
+  return `${ALT_DEG[d] ?? ''}${k + 1}`;
+}
+// Le mode altéré se nomme d'après l'accord 7alt qu'il sert : ♭9, ♯9, 3, ♯11, ♭13, ♭7.
+export const ALTERE = ['1', '♭9', '♯9', '3', '♯11', '♭13', '♭7'];
+// Notes à faire sonner dans un mode : tierce et septième (cibles), note(s) de couleur.
+export function modeTargets(tonic, family, i) {
+  const m = MODES[family][i];
+  const notes = modeNotes(tonic, family, i);
+  const ivs = modeIntervals(family, i);
+  const alt = m.name === 'Altéré';
+  const lab = (k) => (alt ? ALTERE[k] : degName(k, ivs[k]));
+  const colors = m.car.map((c) => ivs.indexOf(c));
+  return {
+    m, notes, alt,
+    third: notes[alt ? 3 : 2], // pour l'altéré, la tierce majeure est le 4e son (fa♭ = mi en do)
+    seventh: notes[6],
+    colorLabels: colors.map(lab),
+    colorNotes: colors.map((k) => notes[k]),
+    chord: alt ? `${nameEn(tonic)}7alt` : chordSymbol(tonic, m.chord),
+  };
+}
 // Accords à 4 sons de chaque degré d'une gamme (empilement de tierces)
 export function harmonize(tonic, family) {
   const iv = FAMILIES[family].iv;

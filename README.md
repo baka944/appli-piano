@@ -7,7 +7,7 @@ Appli d'entraînement au piano jazz, pensée comme un jeu : XP, niveaux nommés 
 - **Aujourd'hui** : programme du jour selon le temps disponible (15, 30, 45 ou 60 min), quêtes de la semaine.
 - **Morceaux** : tes morceaux en cours, notes de travail, temps passé.
 - **Travail › Rythme** : placements de comping joués au piano en MIDI (ou tapés), écart mesuré à chaque attaque, calibrage de la latence.
-- **Oreille et théorie** : intervalles (montants, descendants, harmoniques), types d'accords, quiz de théorie généré (degrés, accords, harmonisation, II-V-I, armures, intervalles).
+- **Oreille et théorie** : intervalles (montants, descendants, harmoniques), types d'accords, quiz de théorie généré (degrés, accords, harmonisation de toutes les gammes, modes, II-V-I, armures, intervalles).
 - **Journal** : niveaux par compétence, historique, thème clair ou sombre, export et import de la progression.
 
 ## Utilisation

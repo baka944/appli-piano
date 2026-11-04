@@ -4,15 +4,9 @@ import * as store from './store.js';
 import * as midi from './midi.js';
 import * as audio from './audio.js';
 import { screenKeyboard, chordCollector, mark } from './keyboard.js';
-import { KEYS, nameFr, pc, FAMILIES, MODES, modeNotes, modeIntervals, harmonize, CHORDS, degreeLabel, voice, transpose, note } from './music.js';
+import { KEYS, nameFr, pc, FAMILIES, MODES, modeNotes, modeIntervals, harmonize, CHORDS, degreeLabel, voice, transpose, note, degName, ALTERE } from './music.js';
 
 const PC = ['do', 'do♯', 'ré', 'mi♭', 'mi', 'fa', 'fa♯', 'sol', 'la♭', 'la', 'si♭', 'si'];
-// Nom du degré selon sa place dans la gamme (une 2de à 3 demi-tons = ♯2, pas ♭3).
-const NAT = [0, 2, 4, 5, 7, 9, 11];
-const ALT = { '-2': '♭♭', '-1': '♭', 0: '', 1: '♯', 2: '♯♯' };
-const degName = (k, st) => { let d = st - NAT[k]; if (d > 6) d -= 12; if (d < -6) d += 12; return `${ALT[d] ?? ''}${k + 1}`; };
-// Le mode altéré se nomme d'après l'accord 7alt qu'il sert : ♭9, ♯9, 3, ♯11, ♭13, ♭7.
-const ALTERE = ['1', '♭9', '♯9', '3', '♯11', '♭13', '♭7'];
 const inputHint = () => h('p', { class: 'muted small' }, midi.isOn() ? 'Joue au piano, dans n’importe quelle octave.' : 'Piano non connecté : utilise le clavier à l’écran.');
 const familySelect = (id, value, onchange) => h('select', { id, onchange }, Object.entries(FAMILIES).map(([k, f]) => h('option', { value: k, selected: k === value }, f.label)));
 const keySelect = (id, value, onchange, label = 'majeur') => h('select', { id, onchange }, KEYS.map((k, i) => h('option', { value: i, selected: i === value }, `${nameFr(k)}${label ? ` ${label}` : ''}`)));

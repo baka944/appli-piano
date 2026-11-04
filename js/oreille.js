@@ -6,7 +6,7 @@ import * as store from './store.js';
 import {
   INTERVALS, intervalById, CHORDS, chordSemis, PROGRESSIONS, PROG_LEVELS, progById, realize, KEYS, nameFr, voice,
 } from './music.js';
-import { makeQuestion, THEMES } from './theorie.js';
+import { nextQuestion, THEMES } from './theorie.js';
 import { MOTIF_LEVELS, motifs } from './v3.js';
 
 const SESSION = 10;
@@ -95,7 +95,7 @@ export function render(el, app, params = {}) {
           h('button', { class: 'btn ghost sm', type: 'button', onclick: () => playProg(p, KEYS[0]) }, 'Écouter en do')))));
     } else {
       root.append(h('section', { class: 'card stack' },
-        h('p', null, 'Degrés des gammes, notes des accords, harmonisation, II-V-I, armures et intervalles.'),
+        h('p', null, 'Degrés des gammes, notes des accords, harmonisation de toutes les gammes, modes, II-V-I, armures et intervalles.'),
         h('div', { class: 'controls' }, h('label', { for: 'theme' }, 'Thème'),
           h('select', { id: 'theme', onchange: (e) => store.setSetting('theoryTheme', e.target.value) },
             Object.entries(THEMES).map(([k, v]) => h('option', { value: k, selected: (s.settings.theoryTheme || 'tout') === k }, v.label))))),
@@ -250,12 +250,13 @@ export function render(el, app, params = {}) {
     const theme = s.settings.theoryTheme || 'tout';
     let n = 0;
     let correct = 0;
+    const seen = new Set();
     const stage = h('section', { class: 'card stack' });
     root.replaceChildren(header(), h('button', { class: 'back', type: 'button', onclick: home }, '← Niveaux'), stage);
     function next() {
       if (n >= SESSION) return finish();
       n++;
-      const q = makeQuestion(L.n, pick(THEMES[theme].types));
+      const q = nextQuestion(L.n, THEMES[theme].types, seen, (k) => store.itemWeight(`theorie:${k}`));
       let done = false;
       const opts = h('div', { class: 'opts col' });
       q.opts.forEach((o) => opts.append(h('button', {

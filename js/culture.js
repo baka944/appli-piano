@@ -4,9 +4,12 @@ import { parseGrid } from './music.js';
 import { band } from './pixel.js';
 import { REGLES } from './ecriture-data.js';
 import * as store from './store.js';
-import { MUSICIENS, STANDARDS, MOUVEMENTS, QUIZ, ALL_FICHES } from './culture-data.js';
+import { MUSICIENS, STANDARDS, MOUVEMENTS, QUIZ, ALL_FICHES, COURANTS } from './culture-data.js';
+import { nextQuestion, THEMES, theoryCards } from './theorie.js';
 
-const TABS = [['jour', 'Carte du jour'], ['musiciens', 'Musiciens'], ['standards', 'Standards'], ['frise', 'Frise'], ['cartes', 'Cartes'], ['quiz', 'Quiz éclair'], ['ecriture', 'Écriture classique'], ['liste', 'Ma liste']];
+// Thèmes des cartes et du quiz éclair. Harmonisation et modes rapportent de l'XP en Théorie.
+const SUJETS = [['tout', 'Tout'], ['culture', 'Culture'], ['harmonisation', 'Harmonisation'], ['modes', 'Modes']];
+const TABS = [['jour', 'Carte du jour'], ['musiciens', 'Musiciens'], ['standards', 'Standards'], ['courants', 'Courants du jazz'], ['frise', 'Frise'], ['cartes', 'Cartes'], ['quiz', 'Quiz éclair'], ['ecriture', 'Écriture classique'], ['liste', 'Ma liste']];
 
 function dayIndex(n) { const d = new Date(); return (d.getFullYear() * 400 + d.getMonth() * 31 + d.getDate()) % n; }
 
@@ -37,9 +40,10 @@ export function render(el, app, params = {}) {
       h('summary', null, h('span', { class: 'tag' }, f.cat || ''), h('strong', null, f.name), h('span', { class: 'muted small' }, f.role)),
       h('p', { class: 'why' }, f.why),
       h('ul', { class: 'facts' }, f.facts.map((x) => h('li', null, x))),
+      f.who ? h('p', null, h('strong', null, 'Grands représentants : '), f.who.join(', '), '.') : null,
       f.listen.length ? h('div', { class: 'stack gap4' }, h('span', { class: 'small muted' }, 'À écouter'),
         f.listen.map((l) => h('div', { class: 'row' },
-          h('span', null, h('em', null, l.title), ` (${l.year})`, l.note ? h('span', { class: 'muted small' }, ` · ${l.note}`) : null),
+          h('span', null, h('em', null, l.title), l.year ? ` (${l.year})` : '', l.note ? h('span', { class: 'muted small' }, ` · ${l.note}`) : null),
           h('span', { class: 'spacer' }),
           h('button', { class: 'btn ghost sm', type: 'button', onclick: () => addListen(l.title, f.name) }, '+ Ma liste')))) : null,
       h('p', { class: 'src small' }, 'Sources : ', f.sources.map((src, i) => [i ? ' · ' : '', h('a', { href: src.url, target: '_blank', rel: 'noopener' }, src.label), h('span', { class: 'muted' }, ` (${src.type})`)])));
@@ -56,15 +60,23 @@ export function render(el, app, params = {}) {
       } }, 'J’ai lu la fiche'));
     } else if (tab === 'musiciens') root.append(...MUSICIENS.map((f) => fiche({ ...f, cat: 'Musicien' })));
     else if (tab === 'standards') root.append(...STANDARDS.map((f) => fiche({ ...f, cat: 'Standard' })));
-    else if (tab === 'frise') {
+    else if (tab === 'courants') {
+      root.append(h('p', { class: 'muted small' }, 'Du plus ancien au plus récent. Un style ne naît pas un jour précis : ces dates sont des repères, et les sources ne les placent pas toujours au même endroit. Touche un courant pour l’ouvrir.'),
+        ...COURANTS.map((f) => fiche({ ...f, cat: 'Courant' })));
+    } else if (tab === 'frise') {
       root.append(h('ol', { class: 'timeline' }, MOUVEMENTS.map((m) => h('li', null,
         h('span', { class: 'hand period' }, m.period), h('strong', null, m.name), h('p', null, m.text),
         h('a', { class: 'small', href: m.source.url, target: '_blank', rel: 'noopener' }, m.source.label)))),
-      h('p', { class: 'muted small' }, 'Le hard bop et le free jazz arriveront quand j’aurai des sources fiables pour leurs dates.'));
+      h('button', { class: 'btn ghost sm', type: 'button', onclick: () => { tab = 'courants'; draw(); } }, 'Voir tous les courants du jazz'));
     } else if (tab === 'cartes') cartes();
     else if (tab === 'ecriture') ecriture();
     else if (tab === 'quiz') quiz();
     else liste();
+    // Garde l'onglet choisi visible dans la barre qui défile.
+    root.querySelectorAll('.seg.scroll').forEach((seg) => {
+      const on = seg.querySelector('.on');
+      if (on) seg.scrollLeft += on.getBoundingClientRect().left - seg.getBoundingClientRect().left - (seg.clientWidth - on.offsetWidth) / 2;
+    });
   }
 
   // Cartes à retourner : faits des fiches + tes propres morceaux (artistes, grilles, mesures).
@@ -83,24 +95,48 @@ export function render(el, app, params = {}) {
     });
     return cards;
   }
-  function cartes() {
-    const all = buildCards();
-    const deck = [];
-    const pool = all.slice();
-    while (deck.length < Math.min(10, all.length)) {
+  // Sélecteur de thème commun aux cartes et au quiz éclair.
+  function sujets(setting, value, list = SUJETS) {
+    return h('div', { class: 'seg small scroll', role: 'tablist', 'aria-label': 'Thème' }, list.map(([id, label]) =>
+      h('button', { type: 'button', role: 'tab', 'aria-selected': value === id ? 'true' : 'false', class: value === id ? 'on' : '', onclick: () => { store.setSetting(setting, id); draw(); } }, label)));
+  }
+  function drawFrom(cards, n) {
+    const out = [];
+    const pool = cards.slice();
+    while (out.length < n && pool.length) {
       const c = weightedPick(pool, (x) => store.itemWeight(`carte:${x.id}`));
-      deck.push(c);
+      out.push(c);
       pool.splice(pool.indexOf(c), 1);
     }
+    return out;
+  }
+  function cartes() {
+    const sujet = s.settings.cardsTheme || 'tout';
+    const culture = buildCards();
+    const harmo = theoryCards('harmonisation');
+    const modes = theoryCards('modes');
+    const all = { culture, harmonisation: harmo, modes, tout: [...culture, ...harmo, ...modes] }[sujet] || culture;
+    // « Tout » garde un équilibre, sinon les cartes de théorie, plus nombreuses, prendraient toute la place.
+    const deck = sujet === 'tout' ? shuffle([...drawFrom(culture, 4), ...drawFrom(harmo, 3), ...drawFrom(modes, 3)]) : drawFrom(all, 10);
     let i = 0;
     let known = 0;
+    const knownSet = [];
     const stage = h('section', { class: 'stack' });
-    root.append(h('p', { class: 'muted small' }, `${all.length} cartes : les faits des fiches et tes morceaux (artistes, grilles, mesures). Celles que tu rates reviennent plus souvent.`), stage);
+    root.append(sujets('cardsTheme', sujet), h('p', { class: 'muted small' }, `${all.length} cartes${sujet === 'culture' || sujet === 'tout' ? ', dont tes morceaux (artistes, grilles, mesures)' : ''}. Celles que tu rates reviennent plus souvent.`), stage);
     const show = () => {
       if (i >= deck.length) {
-        const out = store.award('culture', known + (known === deck.length ? 2 : 0), { activity: 'culture', label: 'Cartes', score: Math.round((known / deck.length) * 100), correct: known, total: deck.length });
-        app.celebrate(out);
-        stage.replaceChildren(h('section', { class: 'card stack center' }, h('div', { class: 'score' }, `${known} / ${deck.length}`), h('div', { class: 'xp-gain' }, `+${out.gained} XP`),
+        const bonus = known === deck.length ? 2 : 0;
+        const isTheory = (c) => harmo.includes(c) || modes.includes(c);
+        const entry = { label: 'Cartes', score: Math.round((known / deck.length) * 100), correct: known, total: deck.length };
+        let gained = 0;
+        // Chaque carte réussie va dans son domaine : Culture ou Théorie.
+        [['culture', 'culture', knownSet.filter((c) => !isTheory(c)).length, !deck.some(isTheory)], ['theorie', 'theorie', knownSet.filter(isTheory).length, deck.some(isTheory)]].forEach(([skill, activity, n, always]) => {
+          if (!n && !always) return;
+          const out = store.award(skill, n + (bonus && (always || n) ? bonus : 0), { activity, ...entry });
+          app.celebrate(out);
+          gained += out.gained;
+        });
+        stage.replaceChildren(h('section', { class: 'card stack center' }, h('div', { class: 'score' }, `${known} / ${deck.length}`), h('div', { class: 'xp-gain' }, `+${gained} XP`),
           h('button', { class: 'btn', type: 'button', onclick: () => draw() }, 'Nouvelle série')));
         return;
       }
@@ -108,7 +144,7 @@ export function render(el, app, params = {}) {
       let flipped = false;
       const answer = h('div', { class: 'row center', hidden: true },
         h('button', { class: 'btn ghost', type: 'button', onclick: () => { store.recordItem(`carte:${c.id}`, false); store.save(); i++; show(); } }, 'À revoir'),
-        h('button', { class: 'btn', type: 'button', onclick: () => { known++; store.recordItem(`carte:${c.id}`, true); store.save(); i++; show(); } }, 'Je savais'));
+        h('button', { class: 'btn', type: 'button', onclick: () => { known++; knownSet.push(c); store.recordItem(`carte:${c.id}`, true); store.save(); i++; show(); } }, 'Je savais'));
       const card = h('button', { type: 'button', class: 'card flash', 'aria-label': 'Retourner la carte', onclick: () => {
         if (flipped) return;
         flipped = true;
@@ -158,32 +194,53 @@ export function render(el, app, params = {}) {
   }
 
   function quiz() {
-    const qs = shuffle(QUIZ).slice(0, 5);
+    const sujet = s.settings.quizTheme || 'culture';
+    const theory = sujet === 'harmonisation' || sujet === 'modes';
+    const SIZE = 5;
+    let qs;
+    if (theory) {
+      const seen = new Set();
+      qs = Array.from({ length: SIZE }, () => nextQuestion(3, THEMES[sujet].types, seen, (k) => store.itemWeight(`theorie:${k}`)))
+        .map((q) => ({ q: q.q, a: q.a, opts: q.opts, why: q.why, id: `theorie:${q.key}` }));
+    } else {
+      // Questions pas encore vues ou ratées d'abord : c'est ce qui évite de tourner en rond.
+      const pool = QUIZ.map((q, i) => ({ ...q, id: `quiz:${i}` }));
+      qs = [];
+      while (qs.length < SIZE) {
+        const c = weightedPick(pool, (x) => store.itemWeight(x.id));
+        qs.push({ ...c, opts: shuffle([c.a, ...c.wrong]) });
+        pool.splice(pool.indexOf(c), 1);
+      }
+    }
     let i = 0;
     let correct = 0;
     const stage = h('section', { class: 'card stack' });
-    root.append(stage);
+    root.append(sujets('quizTheme', sujet, SUJETS.filter(([id]) => id !== 'tout')),
+    theory ? null : h('p', { class: 'muted small' }, `${QUIZ.length} questions. Celles que tu n’as pas vues ou que tu as ratées passent en premier.`), stage);
     const next = () => {
       if (i >= qs.length) {
-        const out = store.award('culture', correct * 2 + (correct === qs.length ? 3 : 0), { activity: 'culture', label: 'Quiz éclair', score: correct * 20, correct, total: qs.length });
+        const out = store.award(theory ? 'theorie' : 'culture', correct * 2 + (correct === qs.length ? 3 : 0), { activity: theory ? 'theorie' : 'culture', label: theory ? `Quiz éclair · ${THEMES[sujet].label}` : 'Quiz éclair', score: correct * 20, correct, total: qs.length });
         app.celebrate(out);
         stage.replaceChildren(h('div', { class: 'score' }, `${correct} / ${qs.length}`), h('div', { class: 'xp-gain' }, `+${out.gained} XP`),
           h('button', { class: 'btn', type: 'button', onclick: () => { draw(); } }, 'Nouveau quiz'));
         return;
       }
       const q = qs[i++];
-      const opts = shuffle([q.a, ...q.wrong]);
       let done = false;
-      const box = h('div', { class: 'opts col' }, opts.map((o) => h('button', { class: 'opt', type: 'button', onclick: (e) => {
+      const box = h('div', { class: 'opts col' }, q.opts.map((o) => h('button', { class: 'opt', type: 'button', onclick: (e) => {
         if (done) return;
         done = true;
         const ok = o === q.a;
         if (ok) correct++;
+        store.recordItem(q.id, ok);
+        store.save();
         box.querySelectorAll('.opt').forEach((b) => { b.disabled = true; if (b.textContent === q.a) b.classList.add('right'); });
         if (!ok) e.currentTarget.classList.add('wrong');
         const f = ALL_FICHES.find((x) => x.id === q.ref);
         stage.append(h('p', { class: ok ? 'good' : 'bad' }, ok ? 'Juste !' : `Réponse : ${q.a}`),
+          q.why ? h('p', { class: 'muted' }, q.why) : null,
           f ? h('p', { class: 'muted small' }, `Fiche : ${f.name}`) : null,
+          q.src ? h('a', { class: 'small', href: q.src.url, target: '_blank', rel: 'noopener' }, `Source : ${q.src.label}`) : null,
           h('button', { class: 'btn', type: 'button', onclick: next }, i >= qs.length ? 'Voir le résultat' : 'Suivant'));
       } }, o)));
       stage.replaceChildren(h('div', { class: 'muted small' }, `Question ${i} / ${qs.length}`), h('h2', { class: 'q' }, q.q), box);
