@@ -6,6 +6,8 @@ import { COURANTS, QUIZ_COURANTS } from './courants-data.js';
 export { COURANTS };
 
 const SRC = {
+  britFela: { label: 'Britannica · Fela', url: 'https://www.britannica.com/print/article/203842', type: 'encyclopédie' },
+  farFela: { label: 'Far Out Magazine · Expensive Shit', url: 'https://faroutmagazine.co.uk/expensive-shit-how-did-the-classic-fela-kuti-album-get-its-name/', type: 'presse musicale' },
   bnDonaldson: { label: 'Blue Note Records · Lou Donaldson (1926-2024)', url: 'https://www.bluenote.com/?p=10218', type: 'maison de disques' },
   neaDonaldson: { label: 'National Endowment for the Arts · décès de Lou Donaldson', url: 'https://www.arts.gov/news/press-releases/2024/national-endowment-arts-statement-death-nea-jazz-master-lou-donaldson', type: 'institution' },
   neaBluesWalk: { label: 'NEA · Lou Donaldson on « Blues Walk »', url: 'https://www.arts.gov/stories/other/lou-donaldson-blues-walk', type: 'interview' },
@@ -37,6 +39,22 @@ const SRC = {
 };
 
 export const MUSICIENS = [
+  {
+    id: 'fela-kuti', name: 'Fela Kuti', role: 'Musicien nigérian, inventeur de l’afrobeat · 1938–1997',
+    why: 'Tu travailles Water No Get Enemy.',
+    facts: [
+      'Né le 15 octobre 1938 à Abeokuta (Nigeria), mort le 2 août 1997 à Lagos.',
+      'Étudie la musique classique au Trinity College de Londres à partir de 1959, et joue du piano dans des groupes de jazz et de rock.',
+      'Sur scène, il joue des claviers et chante en anglais et en yoruba.',
+      'L’afrobeat mêle blues, jazz et funk américains à la musique traditionnelle yoruba ; il naît des expériences de son groupe Koola Lobitos.',
+      'Ses groupes s’appellent ensuite Nigeria 70, Africa 70, puis Egypt 80.',
+      'Water No Get Enemy figure sur l’album Expensive Shit (1975).',
+      'Sa musique devient très politique après une tournée aux États-Unis en 1969 ; il critique le gouvernement militaire nigérian, et son club est perquisitionné à plusieurs reprises.',
+      'Il proclame « république indépendante » sa communauté de Lagos, la Kalakuta Republic, et se présente sans succès à la présidence du Nigeria en 1979.',
+    ],
+    listen: [{ title: 'Expensive Shit', year: 1975, note: 'contient Water No Get Enemy' }],
+    sources: [SRC.britFela, SRC.farFela],
+  },
   {
     id: 'lou-donaldson', name: 'Lou Donaldson', role: 'Saxophoniste alto américain · 1926–2024',
     why: 'Ajouté à tes artistes : Blues Walk est son morceau signature.',
@@ -317,6 +335,13 @@ export const MOUVEMENTS = [
 
 // Quiz éclair : chaque question reprend un fait d'une fiche ci-dessus.
 export const QUIZ = [
+  { q: 'De quel pays vient Fela Kuti ?', a: 'Du Nigeria', wrong: ['Du Ghana', 'Du Sénégal', 'Du Cameroun'], ref: 'fela-kuti' },
+  { q: 'Quel style musical Fela Kuti a-t-il inventé ?', a: 'L’afrobeat', wrong: ['Le highlife', 'L’afro-cubain', 'Le reggae'], ref: 'fela-kuti' },
+  { q: 'Sur quel album de Fela Kuti trouve-t-on Water No Get Enemy ?', a: 'Expensive Shit (1975)', wrong: ['Zombie (1976)', 'Gentleman (1973)', 'Hard Groove (2003)'], ref: 'fela-kuti' },
+  { q: 'Comment s’appelait le groupe de Fela Kuti dans les années 1970 ?', a: 'Africa 70', wrong: ['The RH Factor', 'Koola Lobitos', 'The Jazz Messengers'], ref: 'fela-kuti' },
+  { q: 'Où Fela Kuti a-t-il étudié la musique ?', a: 'Au Trinity College de Londres', wrong: ['À la Juilliard School de New York', 'Au Conservatoire de Paris', 'À Berklee'], ref: 'fela-kuti' },
+  { q: 'Comment Fela Kuti appelait-il sa communauté de Lagos ?', a: 'La Kalakuta Republic', wrong: ['Le Shrine Village', 'La République d’Afrika', 'Le Lagos Club'], ref: 'fela-kuti' },
+  { q: 'Que mélange l’afrobeat selon Britannica ?', a: 'Blues, jazz et funk américains avec la musique yoruba', wrong: ['Reggae et salsa', 'Rock et musique classique', 'Musique électronique et rap'], ref: 'fela-kuti' },
   { q: 'De quel instrument jouait Lou Donaldson ?', a: 'Saxophone alto', wrong: ['Saxophone ténor', 'Trompette', 'Orgue Hammond'], ref: 'lou-donaldson' },
   { q: 'Quel est le morceau signature de Lou Donaldson, enregistré en 1958 ?', a: 'Blues Walk', wrong: ['Alligator Bogaloo', 'The Sermon', 'Moanin’'], ref: 'lou-donaldson' },
   { q: 'Comment Lou Donaldson décrivait-il le style de Blues Walk ?', a: 'Un croisement entre le blues et le bebop', wrong: ['Du free jazz', 'Une bossa nova', 'Une ballade modale'], ref: 'lou-donaldson' },
