@@ -115,7 +115,19 @@ function currentTab() {
   const id = location.hash.replace('#', '');
   return TABS.some((t) => t.id === id) ? id : 'aujourdhui';
 }
+function welcome() {
+  const input = h('input', { id: 'wl-name', type: 'text', autocomplete: 'given-name', maxlength: 30, placeholder: 'Ton prénom' });
+  const go = () => { store.renamePlayer(input.value || 'Joueur'); players0 = false; route(); renderTop(); };
+  view.replaceChildren(h('section', { class: 'card stack' },
+    h('h1', { class: 'display' }, 'Bienvenue !'),
+    h('p', { class: 'lead' }, 'Une appli pour travailler le piano jazz : morceaux, rythme, licks, voicings, oreille et culture. Ta progression reste sur cet appareil.'),
+    h('label', { for: 'wl-name' }, 'Comment tu t’appelles ?'), input,
+    h('p', { class: 'muted small' }, 'Branche un piano MIDI en USB et ouvre l’appli dans Chrome pour jouer au piano. Sans piano, un clavier à l’écran est disponible.'),
+    h('button', { class: 'btn', type: 'button', onclick: go }, 'C’est parti')));
+}
+let players0 = true;
 function route() {
+  if (players0 && store.needsName()) { welcome(); return; }
   if (cleanup) { try { cleanup(); } catch (e) { /* rien */ } }
   cleanup = null;
   const tab = currentTab();

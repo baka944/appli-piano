@@ -89,6 +89,15 @@ function writeJson(key, v) { try { localStorage.setItem(key, JSON.stringify(v));
 
 export function load() {
   players = readJson(PLAYERS_KEY) || { current: null, list: [] };
+  // Lien d'invitation (?invite) : un nouvel appareil démarre avec un profil vierge, jamais avec la partie de Christopher.
+  let invite = false;
+  try { invite = new URLSearchParams(location.search).has('invite'); } catch (e) { invite = false; }
+  if (!players.list.length && invite) {
+    const id = `ami-${Date.now().toString(36)}`;
+    players = { current: id, list: [{ id, name: 'Joueur' }], invite: true };
+    writeJson(PLAYERS_KEY, players);
+    writeJson(dataKey(id), fresh(false));
+  }
   if (!players.list.length) {
     const old = readJson(OLD_KEY);
     const id = 'p1';
@@ -201,6 +210,7 @@ export function addPlayer(name) {
   writeJson(dataKey(id), fresh(false));
   switchPlayer(id);
 }
+export const needsName = () => !!players.invite && currentPlayer().name === 'Joueur';
 export function renamePlayer(name) {
   const p = currentPlayer();
   p.name = name.trim().slice(0, 30) || p.name;
