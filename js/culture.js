@@ -1,8 +1,9 @@
 // Onglet Culture : fiches sourcées, frise, quiz éclair, liste d'écoute.
-import { h, shuffle, toast, weightedPick } from './ui.js';
+import { h, svg, shuffle, toast, weightedPick } from './ui.js';
+import * as audio from './audio.js';
 import { parseGrid } from './music.js';
 import { band } from './pixel.js';
-import { REGLES } from './ecriture-data.js';
+import { REGLES, PARTITIONS } from './ecriture-data.js';
 import * as store from './store.js';
 import { MUSICIENS, STANDARDS, MOUVEMENTS, QUIZ, ALL_FICHES, COURANTS } from './culture-data.js';
 import { nextQuestion, THEMES, theoryCards } from './theorie.js';
@@ -157,14 +158,56 @@ export function render(el, app, params = {}) {
   }
 
   // Écriture classique à 4 voix : test des règles, rappel de la règle après chaque réponse
+  // Petite partition : grand-portée, rondes, soprano et ténor hampe en haut, alto et basse hampe en bas.
+  function scoreSvg(chords) {
+    const L = 'CDEFGAB';
+    const parse = (n) => { const m = /^([A-G])([#b]?)(\d)$/.exec(n); return { d: +m[3] * 7 + L.indexOf(m[1]), acc: m[2], midi: 12 * (+m[3] + 1) + [0, 2, 4, 5, 7, 9, 11][L.indexOf(m[1])] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0) }; };
+    const H = 5; // demi-interligne
+    const top1 = 20; // ligne du haut de la clé de sol (fa5, d = 38)
+    const top2 = top1 + 10 * H + 34; // ligne du haut de la clé de fa (la3, d = 26)
+    const yT = (d) => top1 + (38 - d) * H;
+    const yB = (d) => top2 + (26 - d) * H;
+    const W = 70 + chords.length * 70;
+    let m = `<svg class="score-svg" viewBox="0 0 ${W} ${top2 + 8 * H + 30}" width="${W}" role="img" aria-label="Partition à quatre voix">`;
+    [top1, top2].forEach((t) => { for (let i = 0; i < 5; i++) m += `<line x1="6" x2="${W - 6}" y1="${t + i * 2 * H}" y2="${t + i * 2 * H}" class="st"/>`; });
+    m += `<line x1="6" x2="6" y1="${top1}" y2="${top2 + 8 * H}" class="st"/><line x1="${W - 6}" x2="${W - 6}" y1="${top1}" y2="${top2 + 8 * H}" class="st bar"/>`;
+    m += `<text x="12" y="${top1 + 7 * H}" class="clef">𝄞</text><text x="12" y="${top2 + 5 * H}" class="clef fa">𝄢</text>`;
+    chords.forEach((ch, k) => {
+      const x = 70 + k * 70;
+      if (k) m += `<line x1="${x - 35}" x2="${x - 35}" y1="${top1}" y2="${top2 + 8 * H}" class="st"/>`;
+      ch.forEach((n, v) => {
+        const p = parse(n);
+        const treble = v < 2;
+        const y = treble ? yT(p.d) : yB(p.d);
+        const first = treble ? 30 : 18; // d de la ligne du bas
+        const last = treble ? 38 : 26;
+        for (let d = first - 2; d >= p.d; d -= 2) if (d % 2 === first % 2) m += `<line x1="${x - 9}" x2="${x + 9}" y1="${treble ? yT(d) : yB(d)}" y2="${treble ? yT(d) : yB(d)}" class="st"/>`;
+        for (let d = last + 2; d <= p.d; d += 2) m += `<line x1="${x - 9}" x2="${x + 9}" y1="${treble ? yT(d) : yB(d)}" y2="${treble ? yT(d) : yB(d)}" class="st"/>`;
+        // deux voix à une seconde sur la même portée : on décale la note du bas
+        const other = ch[v % 2 === 0 ? v + 1 : v - 1];
+        const shift = other && Math.abs(parse(other).d - p.d) === 1 && p.d < parse(other).d ? 13 : 0;
+        if (other && parse(other).d === p.d && v % 2 === 1) { m += `<ellipse cx="${x + 13}" cy="${y}" rx="6.5" ry="4.6" class="nh v${v}"/>`; }
+        else m += `<ellipse cx="${x + shift}" cy="${y}" rx="6.5" ry="4.6" class="nh v${v}"/><ellipse cx="${x + shift}" cy="${y}" rx="3" ry="2.6" transform="rotate(-30 ${x + shift} ${y})" class="hole"/>`;
+        if (p.acc) m += `<text x="${x - 20}" y="${y + 4}" class="acc">${p.acc === '#' ? '♯' : '♭'}</text>`;
+      });
+    });
+    m += '</svg>';
+    const el = svg(m);
+    const midis = chords.map((ch) => ch.map((n) => parse(n).midi));
+    return { el, midis };
+  }
+
   function ecriture() {
     const deck = [];
     const pool = REGLES.map((r, i) => ({ ...r, id: `ecr:${i}` }));
+    const scores = PARTITIONS.map((r, i) => ({ ...r, id: `ecrp:${i}` }));
+    while (deck.length < 3) { const c = weightedPick(scores, (x) => store.itemWeight(x.id)); deck.push(c); scores.splice(scores.indexOf(c), 1); }
     while (deck.length < 8) { const c = weightedPick(pool, (x) => store.itemWeight(x.id)); deck.push(c); pool.splice(pool.indexOf(c), 1); }
+    shuffle(deck).forEach((x, k) => { deck[k] = x; });
     let i = 0;
     let correct = 0;
     const stage = h('section', { class: 'card stack' });
-    root.append(h('p', { class: 'muted small' }, `Les règles de l\u2019écriture à 4 voix (soprano, alto, ténor, basse) : ${REGLES.length} questions, celles que tu rates reviennent plus souvent.`), stage);
+    root.append(h('p', { class: 'muted small' }, `Les règles de l’écriture à 4 voix (soprano, alto, ténor, basse) : ${REGLES.length} questions, dont celles de ton cours, et ${PARTITIONS.length} exercices sur partition. Celles que tu rates reviennent plus souvent.`), stage);
     const next = () => {
       if (i >= deck.length) {
         const out = store.award('culture', correct * 2 + (correct === deck.length ? 3 : 0), { activity: 'culture', label: 'Écriture classique', score: Math.round((correct / deck.length) * 100), correct, total: deck.length });
@@ -185,10 +228,17 @@ export function render(el, app, params = {}) {
         if (!ok) e.currentTarget.classList.add('wrong');
         stage.append(h('p', { class: ok ? 'good' : 'bad' }, ok ? 'Juste !' : `Réponse : ${r.a}`),
           h('div', { class: `rule${ok ? '' : ' missed'}` }, h('strong', null, ok ? 'La règle' : 'Rappel de la règle'), h('p', null, r.regle),
-            h('a', { class: 'small', href: r.src.url, target: '_blank', rel: 'noopener' }, `Source : ${r.src.label}`)),
+            r.src.url ? h('a', { class: 'small', href: r.src.url, target: '_blank', rel: 'noopener' }, `Source : ${r.src.label}`) : h('span', { class: 'small muted' }, `Source : ${r.src.label}`)),
           h('button', { class: 'btn', type: 'button', onclick: next }, i >= deck.length ? 'Voir le résultat' : 'Suivant'));
       } }, o)));
-      stage.replaceChildren(h('div', { class: 'muted small' }, `Question ${i} / ${deck.length}`), h('h2', { class: 'q' }, r.q), box);
+      let sc = null;
+      if (r.chords) {
+        const pic = scoreSvg(r.chords);
+        sc = h('div', { class: 'score-box' }, pic.el,
+          h('button', { class: 'btn ghost sm', type: 'button', onclick: async () => { await audio.unlock(); const t = audio.getCtx().currentTime + 0.1; pic.midis.forEach((ch, k) => audio.chord(ch, t + k * 1.3, 1.2, 0.6)); } }, 'Écouter'),
+          h('p', { class: 'muted small' }, 'En haut (clé de sol) : soprano et alto. En bas (clé de fa) : ténor et basse.'));
+      }
+      stage.replaceChildren(h('div', { class: 'muted small' }, `Question ${i} / ${deck.length}${r.chords ? ' · sur partition' : ''}`), h('h2', { class: 'q' }, r.q), sc, box);
     };
     next();
   }

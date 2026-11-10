@@ -6,6 +6,10 @@ import { COURANTS, QUIZ_COURANTS } from './courants-data.js';
 export { COURANTS };
 
 const SRC = {
+  bnDonaldson: { label: 'Blue Note Records · Lou Donaldson (1926-2024)', url: 'https://www.bluenote.com/?p=10218', type: 'maison de disques' },
+  neaDonaldson: { label: 'National Endowment for the Arts · décès de Lou Donaldson', url: 'https://www.arts.gov/news/press-releases/2024/national-endowment-arts-statement-death-nea-jazz-master-lou-donaldson', type: 'institution' },
+  neaBluesWalk: { label: 'NEA · Lou Donaldson on « Blues Walk »', url: 'https://www.arts.gov/stories/other/lou-donaldson-blues-walk', type: 'interview' },
+  udBluesWalk: { label: 'uDiscover Music · Blues Walk', url: 'https://www.udiscovermusic.com/?p=87422', type: 'presse spécialisée' },
   britEvans: { label: 'Britannica · Bill Evans', url: 'https://www.britannica.com/biography/Bill-Evans', type: 'encyclopédie' },
   popWaltz: { label: 'PopMatters · Waltz for Debby', url: 'https://popmatters.com/bill-evans-trio-waltz-for-debby', type: 'presse spécialisée' },
   wikiSomeday: { label: 'Wikipédia (en) · Someday My Prince Will Come', url: 'https://en.wikipedia.org/wiki/Someday_My_Prince_Will_Come', type: 'Wikipédia' },
@@ -33,6 +37,23 @@ const SRC = {
 };
 
 export const MUSICIENS = [
+  {
+    id: 'lou-donaldson', name: 'Lou Donaldson', role: 'Saxophoniste alto américain · 1926–2024',
+    why: 'Ajouté à tes artistes : Blues Walk est son morceau signature.',
+    facts: [
+      'Né le 1er novembre 1926 à Badin (Caroline du Nord), mort le 9 novembre 2024 à 98 ans.',
+      'Saxophone alto. Son jeu part de Charlie Parker puis devient plus soul et plus blues.',
+      'Il commence par la clarinette à 9 ans et joue dans le Great Lakes Navy Band pendant la guerre.',
+      'En 1953, il codirige la séance qui est le premier enregistrement de Clifford Brown ; il aide aussi Horace Silver à entrer chez Blue Note.',
+      'Avec Clifford Brown, il forme la ligne de souffleurs de A Night at Birdland d’Art Blakey (1954), considéré comme l’un des premiers disques de hard bop.',
+      'Blues Walk (enregistré le 28 juillet 1958, Blue Note) devient son morceau signature ; il le décrit comme « un croisement entre le blues et le bebop » et ouvre tous ses concerts avec.',
+      'Il joue souvent avec un orgue Hammond (Jimmy Smith, Big John Patton, Lonnie Smith) ; Alligator Bogaloo (1967) est un classique du soul jazz.',
+      'Ses morceaux funk avec le batteur Idris Muhammad ont été beaucoup samplés par A Tribe Called Quest, De La Soul ou Nas.',
+      'Nommé NEA Jazz Master en 2013.',
+    ],
+    listen: [{ title: 'Blues Walk', year: 1958, note: 'avec Herman Foster (piano) et Ray Barretto (congas)' }, { title: 'A Night at Birdland (Art Blakey)', year: 1954 }, { title: 'Alligator Bogaloo', year: 1967 }],
+    sources: [SRC.bnDonaldson, SRC.neaDonaldson, SRC.neaBluesWalk, SRC.udBluesWalk],
+  },
   {
     id: 'bill-evans', name: 'Bill Evans', role: 'Pianiste américain · 1929–1980',
     why: 'Une de tes références pour Someday My Prince Will Come.',
@@ -296,6 +317,16 @@ export const MOUVEMENTS = [
 
 // Quiz éclair : chaque question reprend un fait d'une fiche ci-dessus.
 export const QUIZ = [
+  { q: 'De quel instrument jouait Lou Donaldson ?', a: 'Saxophone alto', wrong: ['Saxophone ténor', 'Trompette', 'Orgue Hammond'], ref: 'lou-donaldson' },
+  { q: 'Quel est le morceau signature de Lou Donaldson, enregistré en 1958 ?', a: 'Blues Walk', wrong: ['Alligator Bogaloo', 'The Sermon', 'Moanin’'], ref: 'lou-donaldson' },
+  { q: 'Comment Lou Donaldson décrivait-il le style de Blues Walk ?', a: 'Un croisement entre le blues et le bebop', wrong: ['Du free jazz', 'Une bossa nova', 'Une ballade modale'], ref: 'lou-donaldson' },
+  { q: 'Quel percussionniste joue des congas sur l’album Blues Walk ?', a: 'Ray Barretto', wrong: ['Mongo Santamaría', 'Idris Muhammad', 'Art Blakey'], ref: 'lou-donaldson' },
+  { q: 'Avec quel trompettiste Lou Donaldson forme-t-il la ligne de souffleurs de A Night at Birdland (1954) ?', a: 'Clifford Brown', wrong: ['Miles Davis', 'Lee Morgan', 'Freddie Hubbard'], ref: 'lou-donaldson' },
+  { q: 'Quel album de Lou Donaldson (1967) est un classique du soul jazz ?', a: 'Alligator Bogaloo', wrong: ['Blues Walk', 'Lou Takes Off', 'Hard Groove'], ref: 'lou-donaldson' },
+  { q: 'Quel saxophoniste a le plus influencé les débuts de Lou Donaldson ?', a: 'Charlie Parker', wrong: ['John Coltrane', 'Sonny Rollins', 'Ornette Coleman'], ref: 'lou-donaldson' },
+  { q: 'Quel instrument accompagne souvent Lou Donaldson dans sa période soul jazz ?', a: 'L’orgue Hammond', wrong: ['Le vibraphone', 'La guitare électrique', 'Le clavecin'], ref: 'lou-donaldson' },
+  { q: 'Quel groupe de hip-hop a samplé les morceaux funk de Lou Donaldson ?', a: 'A Tribe Called Quest', wrong: ['Run-DMC', 'Wu-Tang Clan', 'Public Enemy'], ref: 'lou-donaldson' },
+  { q: 'Lou Donaldson est mort en 2024 à quel âge ?', a: '98 ans', wrong: ['84 ans', '91 ans', '102 ans'], ref: 'lou-donaldson' },
   { q: 'Qui joue du piano sur Kind of Blue de Miles Davis (1959) ?', a: 'Bill Evans', wrong: ['Red Garland', 'Herbie Hancock', 'Thelonious Monk'], ref: 'bill-evans' },
   { q: 'En quelle année le trio de Bill Evans enregistre-t-il Waltz for Debby au Village Vanguard ?', a: '1961', wrong: ['1956', '1959', '1965'], ref: 'bill-evans' },
   { q: 'Quel contrebassiste jouait dans le trio de Bill Evans en 1961 ?', a: 'Scott LaFaro', wrong: ['Paul Chambers', 'Ron Carter', 'Paul Motian'], ref: 'bill-evans' },

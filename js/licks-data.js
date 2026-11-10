@@ -5,6 +5,7 @@
 
 // Sources pédagogiques : elles décrivent le type de phrase (vocabulaire courant), pas une phrase recopiée d'un enregistrement.
 const S = {
+  'donaldson': { label: 'NEA · Lou Donaldson on « Blues Walk » (« un croisement entre le blues et le bebop »)', url: 'https://www.arts.gov/stories/other/lou-donaldson-blues-walk' },
   'lick': { label: 'jazz-guitar-licks.com, « What is The Lick »', url: 'https://www.jazz-guitar-licks.com/blog/lessons/what-is-the-lick.html' },
   '251': { label: 'The Jazz Piano Site, ii-V7-I licks', url: 'https://thejazzpianosite.com/?p=2767' },
   'four': { label: 'Wikipédia, Four note group', url: 'https://en.wikipedia.org/wiki/Four_note_group' },
@@ -64,6 +65,16 @@ export const LICKS = [
   { id: 'descente-doubles', name: 'Descente rapide de la gamme blues', style: 'Blues', level: 3, over: 'dom7', src: S.bluesj,
     inspi: 'La gamme blues en doubles croches de la tonique jusqu’en bas, puis la tierce bleue et retour à la tonique.',
     notes: [[12, 0.5], [10, 0.5], [7, 0.5], [6, 0.5], [5, 0.5], [3, 0.5], [0, 0.5], [-2, 0.5], [3, 0.5], [4, 1.5], [0, 2]] },
+
+  { id: 'donaldson-riff', name: 'Riff soul jazz (esprit Lou Donaldson)', style: 'Blues', level: 1, over: 'dom7', src: S.donaldson,
+    inspi: 'Un riff court et chantant, autour de la ♭7 et de la tierce bleue, comme les phrases soul jazz de Lou Donaldson. Écrit pour l’appli, pas recopié de Blues Walk.',
+    notes: [[7, 1], [10, 1], [12, 1], [10, 0.5], [7, 1.5], [5, 1], [3, 0.5], [4, 1.5]] },
+  { id: 'donaldson-bebop-blues', name: 'Bebop sur le blues (esprit Lou Donaldson)', style: 'Blues', level: 2, over: 'dom7', src: S.donaldson,
+    inspi: 'Ce que Lou Donaldson appelait « blues et bebop » : un arpège de l’accord 7 qui redescend en chromatique, puis la tierce bleue et la tonique. Écrit pour l’appli.',
+    notes: [[0, 1], [4, 1], [7, 1], [10, 1], [9, 1], [8, 1], [7, 1], [6, 1], [5, 1], [3, 0.5], [4, 1.5], [-2, 1], [0, 4]] },
+  { id: 'donaldson-question', name: 'Question-réponse (esprit Lou Donaldson)', style: 'Blues', level: 2, over: 'dom7', src: S.donaldson,
+    inspi: 'Une petite question (tierce bleue puis quinte tenue), et la réponse qui redescend vers la tonique : la façon de « faire parler » le blues des souffleurs soul jazz. Écrit pour l’appli.',
+    notes: [[3, 0.5], [4, 1.5], [7, 2], [10, 1], [7, 1], [3, 0.5], [4, 1.5], [0, 4]] },
 
   // ---------- Funk ----------
   { id: 'funk-penta', name: 'Pentatonique syncopée', style: 'Funk', level: 1, over: 'm7', src: S.funk,

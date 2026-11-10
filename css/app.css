@@ -384,3 +384,14 @@ input[type="url"], input[type="email"], input[type="password"] { width: 100%; bo
 .mode-detail { border-top: 1px solid var(--staff); padding-top: 12px; }
 .update-bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(84px + env(safe-area-inset-bottom, 0px)); z-index: 21; display: flex; align-items: center; justify-content: space-between; gap: 12px; width: min(92vw, 460px); padding: 10px 14px; border-radius: 10px; background: var(--ink); color: var(--bg); font-size: 14px; box-shadow: 0 6px 20px rgba(0, 0, 0, .18); }
 .update-bar .btn { flex: none; }
+
+/* Écriture : partitions à 4 voix */
+.score-box { display: grid; gap: 8px; justify-items: start; overflow-x: auto; }
+.score-svg { background: #FFFDF7; border-radius: 8px; max-width: 100%; height: auto; }
+.score-svg .st { stroke: #1E2430; stroke-width: 1; }
+.score-svg .st.bar { stroke-width: 3; }
+.score-svg .clef { font-size: 44px; fill: #1E2430; font-family: 'Noto Music', 'Bravura', 'Segoe UI Symbol', serif; }
+.score-svg .clef.fa { font-size: 30px; }
+.score-svg .nh { fill: #1E2430; }
+.score-svg .hole { fill: #FFFDF7; }
+.score-svg .acc { font-size: 16px; fill: #1E2430; }

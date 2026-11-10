@@ -2,6 +2,8 @@
 const SFCM = { label: 'SFCM · Procedures of Four-Part Writing', url: 'https://sfcm.edu/sites/default/files/sfcm-theory/harmony_supplements/chap_05/chap_05.pdf' };
 const KEL = { label: 'R. Kelley · Guidelines for Part-Writing', url: 'https://robertkelleyphd.com/home/partwriting.htm' };
 
+import { REGLES_COURS, PARTITIONS } from './ecriture-cours.js';
+export { PARTITIONS };
 export const REGLES = [
   { q: 'Deux voix forment une quinte juste, puis encore une quinte juste en avançant dans le même sens. C’est…', a: 'Des quintes parallèles : interdit', wrong: ['Autorisé si c’est entre alto et ténor', 'Autorisé si les notes bougent par degré conjoint', 'Une quinte directe, sans problème'], regle: 'Les quintes, octaves et unissons parallèles sont interdits entre toutes les voix : deux voix qui avancent ensemble à la quinte ou à l’octave perdent leur indépendance.', src: SFCM },
   { q: 'La basse va de fa à sol, le soprano de do à ré. Quelle faute ?', a: 'Quintes parallèles', wrong: ['Octaves parallèles', 'Croisement de voix', 'Aucune faute'], regle: 'Fa–do puis sol–ré : deux quintes justes de suite, dans le même sens. Interdit entre toutes les voix.', src: SFCM },
@@ -24,3 +26,5 @@ export const REGLES = [
   { q: 'Quelle est la tessiture habituelle du soprano ?', a: 'do3 à sol4 (C4–G5)', wrong: ['fa1 à do3 (F2–C4)', 'do2 à sol3 (C3–G4)', 'fa2 à do4 (F3–C5)'], regle: 'Soprano do3–sol4, alto fa2–do4, ténor do2–sol3, basse fa1–do3 (notation française, do3 = do central).', src: KEL },
   { q: 'Quelle est la tessiture habituelle de la basse ?', a: 'fa1 à do3 (F2–C4)', wrong: ['do3 à sol4 (C4–G5)', 'do2 à sol3 (C3–G4)', 'fa2 à do4 (F3–C5)'], regle: 'Basse fa1–do3, ténor do2–sol3, alto fa2–do4, soprano do3–sol4 (notation française, do3 = do central).', src: KEL },
 ];
+// Les anciennes questions gardent leur numéro (ecr:0 à ecr:19) ; celles du cours viennent après.
+REGLES.push(...REGLES_COURS);

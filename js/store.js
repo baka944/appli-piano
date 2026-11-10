@@ -138,6 +138,7 @@ function migrateDomainCap() {
 
 // Morceaux ajoutés à la demande de Christopher (joueur p1), une seule fois.
 const SEEDS = [
+  { id: '2026-11-10-donaldson', player: 'p1', listening: [{ id: 'l-blues-walk', title: 'Blues Walk (1958)', by: 'Lou Donaldson', status: 'todo', note: 'Son morceau signature : « un croisement entre le blues et le bebop ».' }] },
   {
     id: '2026-11-02', player: 'p1',
     songs: [
@@ -167,7 +168,8 @@ function applySeeds() {
   } else if (!state.seeds.includes(SEED_ID)) { state.seeds.push(SEED_ID); changed = true; }
   SEEDS.forEach((sd) => {
     if (players.current !== sd.player || state.seeds.includes(sd.id)) return;
-    sd.songs.forEach((song) => { if (!state.songs.some((x) => x.id === song.id)) state.songs.push({ ...song, modules: defaultModules() }); });
+    (sd.songs || []).forEach((song) => { if (!state.songs.some((x) => x.id === song.id)) state.songs.push({ ...song, modules: defaultModules() }); });
+    (sd.listening || []).forEach((it) => { state.listening = state.listening || []; if (!state.listening.some((x) => x.id === it.id)) state.listening.push({ ...it }); });
     state.seeds.push(sd.id);
     changed = true;
   });
